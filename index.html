@@ -139,7 +139,7 @@ section{animation:fade .3s ease}
 .bk::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--sc,var(--line))}
 .bk:hover{box-shadow:var(--sh2)}
 .bk.done{opacity:.72}
-.s0{--sc:var(--amber)}.s1{--sc:var(--brand)}.s2{--sc:var(--red)}.s3{--sc:var(--soft)}.s4{--sc:var(--sky)}
+.s0{--sc:var(--amber)}.s1{--sc:var(--brand)}.s2{--sc:var(--red)}.s3{--sc:var(--soft)}.s4{--sc:var(--sky)}.s9{--sc:var(--red)}
 .gh{display:flex;gap:12px;align-items:flex-start}
 .gav{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-weight:800;font-size:16px;flex:none;background:var(--brand-l);color:var(--brand)}
 .bk .n{font-weight:750;font-size:15px}
@@ -156,6 +156,7 @@ section{animation:fade .3s ease}
 .when{display:inline-block;background:var(--brand);color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:800;margin-left:6px;vertical-align:1px}
 .acts{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;max-width:200px}
 .refund{display:block;color:var(--red);font-weight:750;margin-top:3px}
+.delnote{display:block;margin-top:6px;background:var(--red-l);color:var(--red);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:650;line-height:1.45}
 @media(max-width:900px){.bk{grid-template-columns:1fr 1fr}.acts{max-width:none;justify-content:flex-start;grid-column:1/-1}}
 @media(max-width:560px){.bk{grid-template-columns:1fr}}
 .empty{padding:54px 20px;text-align:center;color:var(--soft)}
@@ -167,6 +168,7 @@ section{animation:fade .3s ease}
 /* availability */
 .avh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:16px 18px;border-bottom:1px solid var(--line)}
 .avh h3{font-size:15px}
+.avh .ar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:3px}
 .seg button{border:none;background:none;border-radius:8px;padding:6px 13px;font-weight:700;font-size:12px;color:var(--mid)}
 .seg button.on{background:var(--card);color:var(--brand);box-shadow:var(--sh1)}
@@ -198,7 +200,7 @@ td:first-child small{display:block;color:var(--soft);font-weight:600}
 /* modal */
 .mo{position:fixed;inset:0;background:rgba(6,16,24,.58);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px;animation:fadeo .2s}
 @keyframes fadeo{from{opacity:0}}
-.mbox{background:var(--card);border:1px solid var(--line);border-radius:22px;width:100%;max-width:420px;padding:24px;box-shadow:var(--sh3);animation:pop .25s cubic-bezier(.2,.9,.3,1.2)}
+.mbox{background:var(--card);border:1px solid var(--line);border-radius:22px;width:100%;max-width:420px;padding:24px;box-shadow:var(--sh3);animation:pop .25s cubic-bezier(.2,.9,.3,1.2);max-height:92vh;overflow:auto}
 @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.96)}}
 .mbox h3{font-size:18px;letter-spacing:-.3px;margin-bottom:4px}
 .mbox .msg{color:var(--mid);line-height:1.55}
@@ -209,6 +211,11 @@ td:first-child small{display:block;color:var(--soft);font-weight:600}
 .sum span:first-child{color:var(--mid);font-weight:600}
 .sum div:last-child span:first-child{color:inherit}
 .qk{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+.opt{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;border:1.5px solid var(--line);border-radius:14px;margin-bottom:9px;cursor:pointer;background:var(--card2);transition:.15s}
+.opt:hover{border-color:var(--brand)}
+.opt input{width:18px;height:18px;accent-color:var(--brand);margin-top:2px}
+.opt b{display:block;font-size:13.5px}.opt small{color:var(--soft);font-weight:600;font-size:12px}
+.opt:has(input:checked){border-color:var(--brand);background:var(--brand-l)}
 
 /* ---------- my hotel (redesign) ---------- */
 .hh{position:relative;overflow:hidden;border-radius:24px;color:#fff;padding:clamp(20px,3.5vw,32px);margin-bottom:16px;background:radial-gradient(900px 400px at 0 -20%,#17806A 0,transparent 60%),linear-gradient(150deg,#0B1F2E,#0B3A3A);box-shadow:var(--sh2);min-height:210px;display:flex;flex-direction:column;justify-content:flex-end}
@@ -348,9 +355,11 @@ main{padding-top:6px}
 
 /* search + chips */
 .sbox .inp{height:48px;border-radius:14px;box-shadow:var(--sh1)}
+.bar .btn.xl{height:48px;border-radius:14px;padding:0 18px;box-shadow:var(--sh1)}
 .chip{padding:8px 16px;transition:.2s var(--ease)}
 .chip.on{background:var(--brand-g);border-color:transparent;color:#fff;box-shadow:0 8px 18px -8px rgba(14,159,126,.8)}
 .chip.on small{opacity:.85}
+@media(max-width:560px){.bar .btn.xl span{display:none}.bar .btn.xl{padding:0 14px}}
 
 /* booking cards */
 .bk{border-radius:22px;padding:20px 22px 20px 26px;gap:22px;transition:transform .25s var(--ease),box-shadow .25s}
@@ -429,7 +438,7 @@ th.today{background:var(--brand-l);border-radius:10px 10px 0 0}
     <div class="l-mid">
       <h1>Your hotel, your bookings, one place.</h1>
       <p>Confirm guests, record advances, set room prices and block dates for your property in real time.</p>
-      <div class="feats"><span>✓ Live booking requests</span><span>✓ Advance tracking</span><span>✓ Room availability</span><span>✓ Instant price updates</span></div>
+      <div class="feats"><span>✓ Live booking requests</span><span>✓ Advance tracking</span><span>✓ Room availability</span><span>✓ Excel reports</span></div>
     </div>
     <div class="l-foot">© KeepJourney. Need help? Contact your KeepJourney account manager.</div>
   </div>
@@ -469,13 +478,14 @@ th.today{background:var(--brand-l);border-radius:10px 10px 0 0}
     <section id="p-bookings">
       <div class="hero"><div class="hl"><div class="hd" id="hdate"></div><h2 id="greet">Bookings</h2><p id="hname"></p></div><div class="hr"><span class="live"><i></i>Live</span><div class="hq" id="hq"></div></div></div>
       <div class="stats" id="stats"></div>
-      <div class="bar"><div class="sbox"><span id="sico"></span><input class="inp" id="q" placeholder="Search guest, phone, room or booking ID" oninput="renderBookings()" aria-label="Search bookings"/></div></div>
+      <div class="bar"><div class="sbox"><span id="sico"></span><input class="inp" id="q" placeholder="Search guest, phone, room or booking ID" oninput="renderBookings()" aria-label="Search bookings"/></div>
+        <button class="btn xl" id="xlBtn" onclick="openExport()" title="Download bookings as an Excel file"></button></div>
       <div class="chips" id="chips"></div>
       <div id="blist"></div>
     </section>
     <section id="p-avail" class="hide">
       <div class="card">
-        <div class="avh"><h3>Room availability</h3><div class="seg" id="rangeSeg"><button class="on" onclick="setRange(14)">14 days</button><button onclick="setRange(30)">30 days</button></div></div>
+        <div class="avh"><h3>Room availability</h3><div class="ar"><div class="seg" id="rangeSeg"><button class="on" onclick="setRange(14)">14 days</button><button onclick="setRange(30)">30 days</button></div><button class="btn sm" id="xlAvail" onclick="exportAvail()" title="Download availability as an Excel file"></button></div></div>
         <div class="tw" id="availWrap"></div>
         <div class="legend"><span><i style="background:var(--brand-l)"></i>Available</span><span><i style="background:var(--amber-l)"></i>Partly booked</span><span><i style="background:var(--red-l)"></i>Sold out</span><span><i style="background:var(--card2);border:1px solid var(--line)"></i>Closed</span></div>
       </div>
@@ -492,14 +502,18 @@ th.today{background:var(--brand-l);border-radius:10px 10px 0 0}
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- SheetJS: builds the .xlsx file in the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 firebase.initializeApp({apiKey:'AIzaSyBwsz30u0hIuH85mHQRJyjRn9RpT0Q9ZfU',authDomain:'camtrop-fbca5.firebaseapp.com',projectId:'camtrop-fbca5',storageBucket:'camtrop-fbca5.firebasestorage.app',messagingSenderId:'941618653822',appId:'1:941618653822:android:b18a15321333308ab6c62f'});
 const db=firebase.firestore(),FV=firebase.firestore.FieldValue;
+const BK='hotel_bookings_backup'; // backup copy of every booking, so app-side deletes never remove it here
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const rs=n=>'₹'+Number(n||0).toLocaleString('en-IN');
 const toD=t=>{try{return t&&t.toDate?t.toDate():new Date(t)}catch{return null}};
 const fd=t=>{const d=toD(t);return d&&!isNaN(d)?d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—'};
+const fdt=t=>{const d=toD(t);return d&&!isNaN(d)?d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):''};
 const dayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const sod=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x};
 function nights(ci,co){const o=[],e=sod(co);for(let d=sod(ci);d<e;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))o.push(new Date(d));return o}
@@ -520,7 +534,8 @@ const I={
  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
  phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
  check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
- plus:'<path d="M12 5v14M5 12h14"/>'
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ download:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>'
 };
 const ic=(n,c='')=>`<svg class="ico ${c}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
 
@@ -549,8 +564,11 @@ function modal(html){
 const mclose=v=>window._mc&&window._mc(v);
 const ask=(title,msg,okText,danger)=>modal(`<h3>${esc(title)}</h3><p class="msg" style="margin-top:6px">${esc(msg)}</p><div class="mact"><button class="btn" onclick="mclose(false)">Keep as is</button><button class="btn ${danger?'solidred':'pri'}" autofocus onclick="mclose(true)">${esc(okText)}</button></div>`).then(v=>!!v);
 
-let owner=null,hotels=[],hotel=null,bookings=[],unsub=null,rooms=[],loaded=false,range=14,dirty=false,filt='';
+/* bookings = live bookings from the app + backup-only bookings that were deleted in the app */
+let owner=null,hotels=[],hotel=null,bookings=[],live=[],bk={},bkOk=true,bkWarned=false,tok=0,unsub=null,rooms=[],loaded=false,range=14,dirty=false,filt='';
+let lastAvail=null;
 const STAT={0:['Requested','t0'],1:['Confirmed','t1'],2:['Rejected','t2'],3:['Cancelled','t3'],4:['Completed','t4']};
+const DEL_LABEL='Deleted in app';
 
 /* theme */
 function applyTheme(t){document.documentElement.dataset.theme=t;$('themeBtn')&&($('themeBtn').innerHTML=ic(t==='dark'?'sun':'moon'));document.querySelector('meta[name=theme-color]').content=t==='dark'?'#0A1822':'#0B1F2E'}
@@ -559,6 +577,8 @@ function toggleTheme(){const t=document.documentElement.dataset.theme==='dark'?'
 $('pwt').innerHTML=ic('eye');
 function togglePw(){const i=$('lpw'),s=i.type==='password';i.type=s?'text':'password';$('pwt').innerHTML=ic(s?'eyeoff':'eye');$('pwt').setAttribute('aria-label',s?'Hide password':'Show password')}
 $('sico').innerHTML=ic('search');
+$('xlBtn').innerHTML=ic('download')+'<span>Excel</span>';
+$('xlAvail').innerHTML=ic('download')+'Excel';
 $('tabs').children[0].innerHTML=ic('inbox')+'Bookings<span id="pbadge" class="bdg hide">0</span>';
 $('tabs').children[1].innerHTML=ic('grid')+'Availability';
 $('tabs').children[2].innerHTML=ic('home')+'My hotel';
@@ -605,64 +625,126 @@ function tab(t){
   scrollTo({top:0,behavior:'smooth'});
 }
 async function switchHotel(id){if(dirty&&!(await ask('Discard changes?','You have unsaved changes for this hotel.','Discard',true))){$('hsel').value=hotel.id;return}pickHotel(id)}
+
+/* ── backup helpers ── */
+const sigOf=b=>[b.status,b.advancePaid,b.amount,b.refundDue?1:0,b.advanceNote||'',b.paymentStatus||'',b.updatedAt&&b.updatedAt.toMillis?b.updatedAt.toMillis():0].join('|');
+function rebuild(){
+  const ids=new Set(live.map(b=>b.id));
+  const gone=Object.values(bk).filter(x=>!ids.has(x.id)).map(x=>({...x,deletedFromApp:true}));
+  bookings=[...live,...gone].sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+}
+async function syncBackup(s){
+  if(!bkOk||!hotel)return;
+  const hid=hotel.id,ts=FV.serverTimestamp(),ops=[],liveIds=new Set(s.docs.map(d=>d.id));
+  // 1) save new / changed bookings
+  s.docs.forEach(d=>{
+    const data=d.data(),sig=sigOf(data),old=bk[d.id];
+    if(old&&old._sig===sig&&!old.deletedFromApp)return;
+    ops.push({ref:db.collection(BK).doc(d.id),type:'set',data:{...data,hotelId:hid,_sig:sig,deletedFromApp:false,deletedAt:null,backedUpAt:ts}});
+    bk[d.id]={...data,id:d.id,hotelId:hid,_sig:sig,deletedFromApp:false};
+  });
+  // 2) booking that exists in backup but no longer in the app = deleted by guest
+  Object.values(bk).forEach(x=>{
+    if(!liveIds.has(x.id)&&!x.deletedFromApp){
+      ops.push({ref:db.collection(BK).doc(x.id),type:'update',data:{deletedFromApp:true,deletedAt:ts}});
+      x.deletedFromApp=true;
+    }
+  });
+  if(!ops.length)return;
+  try{
+    for(let i=0;i<ops.length;i+=400){
+      const b=db.batch();
+      ops.slice(i,i+400).forEach(o=>o.type==='set'?b.set(o.ref,o.data):b.update(o.ref,o.data));
+      await b.commit();
+    }
+  }catch(e){
+    bkOk=false;
+    if(!bkWarned){bkWarned=true;toast('Backup could not be saved: '+e.message+'. Allow the hotel_bookings_backup collection in Firestore rules.',true)}
+  }
+}
 function pickHotel(id){
   hotel=hotels.find(h=>h.id===id);if(!hotel)return;
   $('hsel').value=id;$('hname').textContent=hotel.name;$('hdate').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
   const h=new Date().getHours();$('greet').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', '+(owner.name||'partner');
-  if(unsub)unsub();loaded=false;bookings=[];renderStats();renderBookings();
-  // only this hotel's bookings are ever requested
-  unsub=db.collection('hotel_bookings').where('hotelId','==',id).onSnapshot(s=>{
-    const first=!loaded;loaded=true;
-    if(!first&&!s.metadata.hasPendingWrites)s.docChanges().forEach(c=>{if(c.type==='added'&&Number(c.doc.data().status)===0)newBooking({id:c.doc.id,...c.doc.data()})});
-    bookings=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
-    renderStats();renderBookings();
-  },e=>{loaded=true;toast('Could not load bookings: '+e.message,true);renderBookings()});
+  if(unsub)unsub();loaded=false;bookings=[];live=[];bk={};bkOk=true;lastAvail=null;renderStats();renderBookings();
+  const my=++tok;
+  // 1) load the backup first, 2) then listen to live bookings
+  db.collection(BK).where('hotelId','==',id).get()
+    .then(s=>{s.docs.forEach(d=>{bk[d.id]={...d.data(),id:d.id}})})
+    .catch(e=>{bkOk=false;if(!bkWarned){bkWarned=true;toast('Backup is not available: '+e.message+'. Allow the hotel_bookings_backup collection in Firestore rules.',true)}})
+    .then(()=>{
+      if(my!==tok)return;
+      // only this hotel's bookings are ever requested
+      unsub=db.collection('hotel_bookings').where('hotelId','==',id).onSnapshot(s=>{
+        if(my!==tok)return;
+        const first=!loaded;loaded=true;
+        if(!first&&!s.metadata.hasPendingWrites)s.docChanges().forEach(c=>{if(c.type==='added'&&Number(c.doc.data().status)===0)newBooking({id:c.doc.id,...c.doc.data()})});
+        live=s.docs.map(d=>({id:d.id,...d.data()}));
+        // do not treat a partial offline cache as "deleted"
+        if(!s.metadata.fromCache)syncBackup(s).then(()=>{rebuild();renderStats();renderBookings();drawCal()});
+        rebuild();renderStats();renderBookings();drawCal();
+      },e=>{loaded=true;toast('Could not load bookings: '+e.message,true);renderBookings()});
+    });
   dirty=false;$('savebar').classList.remove('on');renderForm();
   if(!$('p-avail').classList.contains('hide'))loadAvail();
 }
 
 /* ── bookings ── */
+const isDel=b=>!!b.deletedFromApp;
 function renderStats(){
   const today=sod(new Date()),now=new Date();
-  const p=bookings.filter(b=>b.status===0).length;
-  const cit=bookings.filter(b=>b.status===1&&toD(b.checkIn)&&sod(toD(b.checkIn)).getTime()===today.getTime()).length;
-  const inn=bookings.filter(b=>b.status===1&&toD(b.checkIn)&&toD(b.checkOut)&&toD(b.checkIn)<=now&&toD(b.checkOut)>now).length;
-  const due=bookings.filter(b=>b.status<=1).reduce((s,b)=>s+Math.max(0,(b.amount||0)-(b.advancePaid||0)),0);
+  const act=bookings.filter(b=>!isDel(b));
+  const p=act.filter(b=>b.status===0).length;
+  const cit=act.filter(b=>b.status===1&&toD(b.checkIn)&&sod(toD(b.checkIn)).getTime()===today.getTime()).length;
+  const inn=act.filter(b=>b.status===1&&toD(b.checkIn)&&toD(b.checkOut)&&toD(b.checkIn)<=now&&toD(b.checkOut)>now).length;
+  const due=act.filter(b=>b.status<=1).reduce((s,b)=>s+Math.max(0,(b.amount||0)-(b.advancePaid||0)),0);
   const card=(ico,cls,v,l,extra='')=>`<div class="st ${extra}"><div class="ib ${cls}">${ic(ico)}</div><b>${v}</b><small>${l}</small></div>`;
   $('stats').innerHTML=card('inbox','c-amber',p,'Waiting for you',p?'alert':'')+card('login','c-green',cit,'Check-ins today')+card('bed','c-sky',inn,'Staying now')+card('rupee','c-red',rs(due),'To collect at hotel');
   const hq=$('hq');if(hq)hq.innerHTML=p?`<b>${p}</b>request${p>1?'s':''} waiting for you`:'<b>✓</b>All caught up';document.title=(p?`(${p}) `:'')+'KeepJourney Hotel Partner';const pb=$('pbadge');if(pb){pb.textContent=p;pb.classList.toggle('hide',!p)}
-  const cnt=k=>k===''?bookings.length:bookings.filter(b=>String(b.status)===k).length;
-  $('chips').innerHTML=[['','All'],['0','Requested'],['1','Confirmed'],['4','Completed'],['3','Cancelled'],['2','Rejected']].map(([k,l])=>`<button class="chip ${filt===k?'on':''}" onclick="setFilt('${k}')">${l}<small>${cnt(k)}</small></button>`).join('');
+  const cnt=k=>k===''?bookings.length:k==='del'?bookings.filter(isDel).length:bookings.filter(b=>!isDel(b)&&String(b.status)===k).length;
+  const chips=[['','All'],['0','Requested'],['1','Confirmed'],['4','Completed'],['3','Cancelled'],['2','Rejected']];
+  if(cnt('del'))chips.push(['del',DEL_LABEL]);
+  if(filt==='del'&&!cnt('del'))filt='';
+  $('chips').innerHTML=chips.map(([k,l])=>`<button class="chip ${filt===k?'on':''}" onclick="setFilt('${k}')">${l}<small>${cnt(k)}</small></button>`).join('');
 }
 function setFilt(k){filt=k;renderStats();renderBookings()}
 function whenTag(b){
-  const d=toD(b.checkIn);if(!d||b.status!==1)return'';
+  const d=toD(b.checkIn);if(!d||b.status!==1||isDel(b))return'';
   const diff=Math.round((sod(d)-sod(new Date()))/864e5);
   return diff===0?'<span class="when">TODAY</span>':diff===1?'<span class="when" style="background:var(--sky)">TOMORROW</span>':'';
+}
+/* the list currently shown (search + status chip) */
+function filteredBookings(){
+  const q=($('q').value||'').toLowerCase();
+  return bookings.filter(b=>(!q||[b.bookingId,b.name,b.phone,b.roomName,b.id].some(x=>String(x||'').toLowerCase().includes(q)))&&(filt===''||(filt==='del'?isDel(b):(!isDel(b)&&String(b.status)===filt))));
 }
 function renderBookings(){
   const L=$('blist');
   if(!loaded){L.innerHTML=[1,2,3].map(()=>'<div class="card" style="padding:18px"><div class="skel" style="height:18px;width:40%;margin-bottom:12px"></div><div class="skel" style="height:12px;width:70%;margin-bottom:8px"></div><div class="skel" style="height:12px;width:55%"></div></div>').join('');return}
-  const q=$('q').value.toLowerCase();
-  const f=bookings.filter(b=>(!q||[b.bookingId,b.name,b.phone,b.roomName,b.id].some(x=>String(x||'').toLowerCase().includes(q)))&&(filt===''||String(b.status)===filt));
+  const f=filteredBookings();
   if(!f.length){L.innerHTML=`<div class="card empty"><div class="big">${bookings.length?'🔍':'🛎️'}</div><b>${bookings.length?'No matching bookings':'No bookings yet'}</b>${bookings.length?'Try a different search or filter.':'New requests will appear here instantly.'}</div>`;return}
   L.innerHTML=f.map(b=>{
-    const s=Number(b.status)||0,[lbl,cls]=STAT[s]||STAT[0],amt=Number(b.amount)||0,adv=Number(b.advancePaid)||0;
+    const del=isDel(b);
+    const s=Number(b.status)||0,[lbl0,cls0]=STAT[s]||STAT[0],amt=Number(b.amount)||0,adv=Number(b.advancePaid)||0;
+    const lbl=del?DEL_LABEL:lbl0,cls=del?'t2':cls0;
     const a=[];
-    if(s===0)a.push(`<button class="btn sm pri" onclick="setSt('${b.id}',1)">${ic('check')}Confirm</button>`,`<button class="btn sm red" onclick="setSt('${b.id}',2)">Reject</button>`);
-    if(s===1)a.push(`<button class="btn sm pri" onclick="setSt('${b.id}',4)">${ic('check')}Complete</button>`,`<button class="btn sm red" onclick="setSt('${b.id}',3)">Cancel</button>`);
-    if(s<=1)a.push(`<button class="btn sm" onclick="advance('${b.id}')">${ic('rupee')}Advance</button>`);
+    if(!del){
+      if(s===0)a.push(`<button class="btn sm pri" onclick="setSt('${b.id}',1)">${ic('check')}Confirm</button>`,`<button class="btn sm red" onclick="setSt('${b.id}',2)">Reject</button>`);
+      if(s===1)a.push(`<button class="btn sm pri" onclick="setSt('${b.id}',4)">${ic('check')}Complete</button>`,`<button class="btn sm red" onclick="setSt('${b.id}',3)">Cancel</button>`);
+      if(s<=1)a.push(`<button class="btn sm" onclick="advance('${b.id}')">${ic('rupee')}Advance</button>`);
+    }
     const stay=b.bookingType==='fullDay'?`Full day ${esc(b.checkInTime||'')}–${esc(b.checkOutTime||'')}`:`${b.nights||'?'} night${b.nights>1?'s':''}`;
     const pct=amt?Math.min(100,Math.round(adv/amt*100)):0;
     const phone=esc(b.phone||'');
-    return`<article class="card bk s${s} ${s>=2&&s<4?'done':''} ${fresh.has(b.id)?'fresh':''}">
+    const delBox=del?`<span class="delnote">Guest deleted this booking from the app${b.deletedAt?' on '+esc(fdt(b.deletedAt)):''}. Last status: ${esc(lbl0)}.${adv>0?' Advance of '+rs(adv)+' was recorded, check refund with the guest.':''}</span>`:'';
+    return`<article class="card bk ${del?'s9 done':'s'+s} ${!del&&s>=2&&s<4?'done':''} ${fresh.has(b.id)?'fresh':''}">
       <div class="gh"><div class="gav">${esc((b.name||'G').trim()[0].toUpperCase())}</div><div><div class="n">${esc(b.name||'Guest')}</div>
         <div class="s">${phone?`<a href="tel:${phone}">${phone}</a><br>`:''}${b.guests||'?'} guests · #${esc(String(b.bookingId||b.id).slice(-8))}</div>${b.note?`<span class="note">${esc(b.note)}</span>`:''}</div></div>
       <div><div class="n" style="font-size:14px">${esc(b.roomName||'')} × ${b.rooms||1}</div><div class="s">${fd(b.checkIn)} → ${fd(b.checkOut)}${whenTag(b)}<br>${stay}${b.foodIncluded?`<br>Food: ${b.foodType==='nonveg'?'Non-veg':'Veg'} (${rs(b.foodAmount)})`:''}</div></div>
       <div><div class="amt">${rs(amt)}</div>
         <div class="pbar" title="${pct}% paid in advance"><i style="width:${pct}%"></i></div>
-        <div class="s" style="margin:0 0 7px">${adv>0?`Advance ${rs(adv)} · Balance ${rs(Math.max(0,amt-adv))}`:(b.advancePercent>0&&s<2?`Advance due ${rs(Math.round(amt*b.advancePercent/100))}`:'No advance recorded')}${b.refundDue?`<span class="refund">Refund due ${rs(adv)}</span>`:''}</div>
-        <span class="tag ${cls}">${lbl}</span></div>
+        <div class="s" style="margin:0 0 7px">${adv>0?`Advance ${rs(adv)} · Balance ${rs(Math.max(0,amt-adv))}`:(b.advancePercent>0&&s<2&&!del?`Advance due ${rs(Math.round(amt*b.advancePercent/100))}`:'No advance recorded')}${b.refundDue?`<span class="refund">Refund due ${rs(adv)}</span>`:''}</div>
+        <span class="tag ${cls}">${lbl}</span>${delBox}</div>
       <div class="acts">${a.join('')}</div></article>`;
   }).join('');
 }
@@ -678,6 +760,8 @@ async function openCollect(id){
   return !!r;
 }
 async function setSt(id,ns,collected){
+  const bb=bookings.find(x=>x.id===id);
+  if(bb&&isDel(bb)){toast('This booking was deleted in the app and can no longer be changed.',true);return}
   if(ns===4&&!collected){if(await openCollect(id))setSt(id,4,true);return}
   const msg={1:['Confirm this booking?','The guest will be notified that the room is reserved.','Confirm booking'],
     2:['Reject this request?','The rooms will be released and the guest informed.','Reject request'],
@@ -686,7 +770,7 @@ async function setSt(id,ns,collected){
   const ref=db.collection('hotel_bookings').doc(id),ts=FV.serverTimestamp();
   try{
     await db.runTransaction(async tx=>{
-      const s=await tx.get(ref);if(!s.exists)throw new Error('Booking not found');
+      const s=await tx.get(ref);if(!s.exists)throw new Error('This booking was deleted in the app.');
       const b=s.data(),cur=Number(b.status)||0;
       if(b.hotelId!==hotel.id)throw new Error('This booking belongs to another hotel');
       const ok={0:[1,2],1:[3,4]}[cur];
@@ -713,6 +797,7 @@ async function setSt(id,ns,collected){
 }
 async function advance(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(isDel(b)){toast('This booking was deleted in the app and can no longer be changed.',true);return}
   const total=Number(b.amount)||0;
   const sug=b.advancePaid>0?b.advancePaid:Math.round(total*(b.advancePercent||0)/100);
   const pctAmt=Math.round(total*(b.advancePercent||0)/100);
@@ -732,12 +817,120 @@ async function advance(id){
   }catch(e){toast(e.message,true)}
 }
 
+/* ── Excel export (SheetJS) ── */
+// Stops spreadsheet formula injection: text starting with = @ or a +/- that is not a number is prefixed with an apostrophe.
+const safe=v=>{if(typeof v!=='string')return v;return /^[=@\t\r]|^[+\-](?![\d\s.])/.test(v)?"'"+v:v};
+const slug=s=>String(s||'hotel').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,40)||'hotel';
+const todayStr=()=>dayKey(new Date());
+function xlReady(){if(typeof XLSX==='undefined'){toast('Excel library did not load. Check your internet connection and refresh.',true);return false}return true}
+function fitCols(rows,min=8,max=42){
+  if(!rows.length)return[];
+  return Object.keys(rows[0]).map(k=>({wch:Math.min(max,Math.max(min,k.length+2,...rows.map(r=>String(r[k]==null?'':r[k]).length+2)))}));
+}
+function bookingRow(b){
+  const amt=Number(b.amount)||0,adv=Number(b.advancePaid)||0,s=Number(b.status)||0;
+  const ci=toD(b.checkIn),co=toD(b.checkOut);
+  return{
+    'Booking ID':safe(String(b.bookingId||b.id)),
+    'Guest name':safe(b.name||''),
+    'Phone':safe(String(b.phone||'')),
+    'Guests':Number(b.guests)||0,
+    'Room type':safe(b.roomName||''),
+    'Rooms':Number(b.rooms)||1,
+    'Booking type':b.bookingType==='fullDay'?'Full day':'Overnight',
+    'Check-in':ci&&!isNaN(ci)?fd(ci):'',
+    'Check-out':co&&!isNaN(co)?fd(co):'',
+    'Nights':b.bookingType==='fullDay'?0:(Number(b.nights)||0),
+    'Food':b.foodIncluded?(b.foodType==='nonveg'?'Non-veg':'Veg'):'No',
+    'Food amount (₹)':b.foodIncluded?(Number(b.foodAmount)||0):0,
+    'Total amount (₹)':amt,
+    'Advance paid (₹)':adv,
+    'Balance (₹)':Math.max(0,amt-adv),
+    'Advance note':safe(b.advanceNote||''),
+    'Status':isDel(b)?`${DEL_LABEL} (last: ${(STAT[s]||STAT[0])[0]})`:(STAT[s]||STAT[0])[0],
+    'Payment':b.paymentStatus==='paid'?'Paid':(adv>0?'Part paid':'Unpaid'),
+    'Refund due (₹)':b.refundDue?adv:0,
+    'Guest note':safe(b.note||''),
+    'Requested on':fdt(b.createdAt),
+    'Deleted in app on':isDel(b)?fdt(b.deletedAt):''
+  };
+}
+function openExport(){
+  if(!loaded){toast('Bookings are still loading. Try again in a moment.',true);return}
+  if(!bookings.length){toast('There are no bookings to export yet.',true);return}
+  const cur=filteredBookings().length,all=bookings.length;
+  const lbl=filt===''?'All statuses':filt==='del'?DEL_LABEL:(STAT[filt]||[''])[0];
+  modal(`<h3>Download Excel report</h3><p class="msg" style="margin-top:6px">${esc(hotel.name)}</p>
+    <div style="margin-top:16px">
+      <label class="opt"><input type="radio" name="xs" value="view" ${cur?'checked':''}/><span><b>Current view (${cur})</b><small>Status: ${esc(lbl)}${$('q').value?' · search: “'+esc($('q').value)+'”':''}</small></span></label>
+      <label class="opt"><input type="radio" name="xs" value="all" ${cur?'':'checked'}/><span><b>All bookings (${all})</b><small>Every status, newest first</small></span></label>
+    </div>
+    <div class="row" style="margin-top:6px"><div class="fg" style="margin:0"><label class="l" for="xf">Check-in from (optional)</label><input class="inp" id="xf" type="date"/></div><div class="fg" style="margin:0"><label class="l" for="xt">Check-in to (optional)</label><input class="inp" id="xt" type="date"/></div></div>
+    <p class="hint">The file has a Bookings sheet and a Summary sheet with totals.</p>
+    <p id="xe" class="err hide" style="margin:12px 0 0"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="runExport()">${ic('download')}Download .xlsx</button></div>`);
+}
+function runExport(){
+  if(!xlReady())return;
+  const scope=(document.querySelector('input[name=xs]:checked')||{}).value||'all';
+  const f=$('xf').value,t=$('xt').value,er=$('xe');
+  if(f&&t&&f>t){er.textContent='“From” date must be before “to” date.';er.classList.remove('hide');return}
+  let list=scope==='view'?filteredBookings():bookings.slice();
+  if(f||t)list=list.filter(b=>{const d=toD(b.checkIn);if(!d||isNaN(d))return false;const k=dayKey(d);return(!f||k>=f)&&(!t||k<=t)});
+  if(!list.length){er.textContent='No bookings match these options.';er.classList.remove('hide');return}
+  try{
+    const rows=list.map(bookingRow),wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=fitCols(rows);ws['!freeze']={xSplit:0,ySplit:1};
+    ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:Object.keys(rows[0]).length-1}})};
+    XLSX.utils.book_append_sheet(wb,ws,'Bookings');
+    /* summary (deleted-in-app bookings are listed separately and not counted in revenue) */
+    const kept=list.filter(b=>!isDel(b)),dels=list.filter(isDel);
+    const sumBy=s=>kept.filter(b=>Number(b.status)===s);
+    const live_=kept.filter(b=>Number(b.status)<=1&&Number(b.status)>=0);
+    const sm=[
+      ['KeepJourney Hotel Partner · Bookings report'],
+      ['Hotel',safe(hotel.name)],
+      ['Generated',new Date().toLocaleString('en-IN')],
+      ['Generated by',safe(owner.name||owner.id)],
+      ['Check-in filter',(f||t)?`${f||'any'} to ${t||'any'}`:'None'],
+      [],
+      ['Status','Bookings','Amount (₹)','Advance (₹)','Balance (₹)']
+    ];
+    [0,1,4,3,2].forEach(s=>{const l=sumBy(s);sm.push([STAT[s][0],l.length,l.reduce((a,b)=>a+(Number(b.amount)||0),0),l.reduce((a,b)=>a+(Number(b.advancePaid)||0),0),l.reduce((a,b)=>a+Math.max(0,(Number(b.amount)||0)-(Number(b.advancePaid)||0)),0)])});
+    sm.push([DEL_LABEL,dels.length,dels.reduce((a,b)=>a+(Number(b.amount)||0),0),dels.reduce((a,b)=>a+(Number(b.advancePaid)||0),0),dels.reduce((a,b)=>a+Math.max(0,(Number(b.amount)||0)-(Number(b.advancePaid)||0)),0)]);
+    sm.push([],
+      ['Total bookings in file',list.length],
+      ['Expected revenue (requested + confirmed + completed, ₹)',kept.filter(b=>[0,1,4].includes(Number(b.status))).reduce((a,b)=>a+(Number(b.amount)||0),0)],
+      ['Advance received on active/completed bookings (₹)',kept.filter(b=>[0,1,4].includes(Number(b.status))).reduce((a,b)=>a+(Number(b.advancePaid)||0),0)],
+      ['Balance still to collect at hotel (₹)',live_.reduce((a,b)=>a+Math.max(0,(Number(b.amount)||0)-(Number(b.advancePaid)||0)),0)],
+      ['Refunds due to guests (₹)',kept.filter(b=>b.refundDue).reduce((a,b)=>a+(Number(b.advancePaid)||0),0)]);
+    const ws2=XLSX.utils.aoa_to_sheet(sm);ws2['!cols']=[{wch:52},{wch:20},{wch:16},{wch:16},{wch:16}];
+    XLSX.utils.book_append_sheet(wb,ws2,'Summary');
+    XLSX.writeFile(wb,`KeepJourney_${slug(hotel.name)}_bookings_${todayStr()}.xlsx`);
+    mclose(true);toast(`Downloaded ${list.length} booking${list.length>1?'s':''}`);
+  }catch(e){er.textContent='Could not create the file: '+e.message;er.classList.remove('hide')}
+}
+function exportAvail(){
+  if(!xlReady())return;
+  if(!lastAvail||lastAvail.hid!==hotel.id){toast('Availability is still loading. Try again in a moment.',true);return}
+  try{
+    const {days,rooms:rt,grid}=lastAvail;
+    const head=['Room type','Total rooms','Price (₹)',...days.map(d=>d.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'}))];
+    const aoa=[head,...rt.map((r,i)=>[safe(r.name),Number(r.totalRooms)||0,Number(r.price)||0,...grid[i]])];
+    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:26},{wch:12},{wch:12},...days.map(()=>({wch:13}))];ws['!freeze']={xSplit:3,ySplit:1};
+    const note=XLSX.utils.aoa_to_sheet([['Each cell shows rooms booked / total rooms for that night. "Closed" means the date is closed for new bookings.'],['Hotel',safe(hotel.name)],['Generated',new Date().toLocaleString('en-IN')]]);note['!cols']=[{wch:90},{wch:30}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Availability');XLSX.utils.book_append_sheet(wb,note,'Notes');
+    XLSX.writeFile(wb,`KeepJourney_${slug(hotel.name)}_availability_${todayStr()}.xlsx`);
+    toast('Availability downloaded');
+  }catch(e){toast('Could not create the file: '+e.message,true)}
+}
+
 /* ── availability (read only) ── */
 function setRange(n){range=n;[...$('rangeSeg').children].forEach((b,i)=>b.classList.toggle('on',(i===0?14:30)===n));loadAvail()}
 async function loadAvail(){
   const W=$('availWrap');
   const rt=Array.isArray(hotel.roomTypes)?hotel.roomTypes:[];
-  if(!rt.length){W.innerHTML='<div class="empty"><div class="big">🛏️</div><b>No room types yet</b>Add room types under My hotel first.</div>';return}
+  if(!rt.length){lastAvail=null;W.innerHTML='<div class="empty"><div class="big">🛏️</div><b>No room types yet</b>Add room types under My hotel first.</div>';return}
   W.innerHTML='<div style="padding:18px"><div class="skel" style="height:140px"></div></div>';
   const days=[...Array(range)].map((_,i)=>{const d=sod(new Date());d.setDate(d.getDate()+i);return d});
   const hid=hotel.id;
@@ -745,6 +938,10 @@ async function loadAvail(){
     const snaps=await Promise.all(days.map(d=>db.collection('hotels').doc(hid).collection('availability').doc(dayKey(d)).get()));
     if(!hotel||hotel.id!==hid)return;
     const blocked=new Set(hotel.blockedDates||[]);
+    /* keep a copy for the Excel export */
+    lastAvail={hid,days,rooms:rt.map(r=>({...r})),grid:rt.map(r=>snaps.map((s,i)=>{
+      if(blocked.has(dayKey(days[i])))return'Closed';
+      const used=Math.max(0,s.exists?(Number(s.data()['r_'+r.id])||0):0);return`${used}/${Number(r.totalRooms)||0}`}))};
     W.innerHTML=`<table><thead><tr><th>Room type</th>${days.map((d,i)=>`<th class="${i===0?'today':''}"><small>${d.toLocaleDateString('en-IN',{weekday:'short'})}</small>${d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</th>`).join('')}</tr></thead><tbody>${rt.map(r=>`<tr><td>${esc(r.name)}<small>${Number(r.totalRooms)||0} rooms · ${rs(r.price)}</small></td>${snaps.map((s,i)=>{
       if(blocked.has(dayKey(days[i])))return'<td><div class="cell off" title="Closed">Closed</div></td>';
       const used=Math.max(0,s.exists?(Number(s.data()['r_'+r.id])||0):0),tot=Number(r.totalRooms)||0,full=used>=tot;
@@ -854,7 +1051,7 @@ function updateHero(){
 /* ---- closed-dates calendar ---- */
 function bookedMap(){
   const m={};
-  bookings.filter(b=>b.status===0||b.status===1).forEach(b=>{
+  bookings.filter(b=>!isDel(b)&&(b.status===0||b.status===1)).forEach(b=>{
     const a=toD(b.checkIn),c=toD(b.checkOut);if(!a||!c)return;
     const ns=nights(a,c);(ns.length?ns:[sod(a)]).forEach(d=>{const k=dayKey(d);m[k]=(m[k]||0)+1});
   });return m;
@@ -917,7 +1114,7 @@ function drawRooms(){setTimeout(updateHero,0);
 }
 function addRoom(){rooms.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:'',description:'',price:'',maxGuests:2,totalRooms:1,fullDayPrice:''});drawRooms();markDirty()}
 function delRoom(i){
-  if(bookings.some(b=>b.roomId===rooms[i].id&&(b.status===0||b.status===1))){toast('This room type has active bookings. Cancel or complete them first.',true);return}
+  if(bookings.some(b=>!isDel(b)&&b.roomId===rooms[i].id&&(b.status===0||b.status===1))){toast('This room type has active bookings. Cancel or complete them first.',true);return}
   rooms.splice(i,1);drawRooms();markDirty();
 }
 async function saveHotel(){
@@ -944,7 +1141,7 @@ async function saveHotel(){
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving';
   try{
     await db.collection('hotels').doc(hotel.id).update(data);
-    Object.assign(hotel,data);dirty=false;$('savebar').classList.remove('on');toast('Saved. Changes are live in the app.');
+    Object.assign(hotel,data);lastAvail=null;dirty=false;$('savebar').classList.remove('on');toast('Saved. Changes are live in the app.');
   }catch(e){toast('Could not save: '+e.message,true)}
   finally{btn.disabled=false;btn.textContent='Save changes'}
 }
