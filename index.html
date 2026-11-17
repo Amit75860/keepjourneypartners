@@ -4,6 +4,11 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="robots" content="noindex,nofollow"/>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta name="referrer" content="no-referrer"/>
+<meta name="format-detection" content="telephone=no"/>
 <meta name="theme-color" content="#0B1F2E"/>
 <meta name="description" content="KeepJourney Hotel Partner Portal: manage bookings, availability and room prices."/>
 <title>KeepJourney Hotel Partner · Plan, Book, Travel</title>
@@ -405,7 +410,15 @@ th.today{background:var(--brand-l);border-radius:10px 10px 0 0}
 
 /* modal + toast */
 .mo{backdrop-filter:blur(6px)}
-.mbox{position:relative;overflow:hidden;border-radius:26px;padding:28px}
+.mo{align-items:flex-start;overflow-y:scroll;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:auto;scrollbar-color:var(--brand) var(--card2)}
+.mo::-webkit-scrollbar{width:12px}
+.mo::-webkit-scrollbar-track{background:rgba(255,255,255,.18)}
+.mo::-webkit-scrollbar-thumb{background:var(--brand);border-radius:12px;border:3px solid transparent;background-clip:padding-box;min-height:48px}
+.mbox{position:relative;overflow:hidden;max-height:none;margin:auto;border-radius:26px;padding:28px}
+.mact.stick{position:sticky;bottom:-28px;z-index:3;margin:16px -28px -28px;padding:14px 28px;background:var(--card);border-top:1px solid var(--line)}
+@media(max-width:560px){.mact.stick{bottom:-22px;margin:16px -18px -22px;padding:12px 18px}}
+.mbox.wide{max-width:560px}
+@media(max-width:560px){.mbox{padding:22px 18px}}
 .mbox::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:var(--brand-g)}
 .toast{border-radius:16px;padding:13px 18px}
 
@@ -421,7 +434,64 @@ th.today{background:var(--brand-l);border-radius:10px 10px 0 0}
 .toast.bad{background:var(--red);color:#fff}.toast.out{opacity:0;transform:translateX(20px);transition:.25s}
 @keyframes tin{from{opacity:0;transform:translateY(12px)}}
 @media(max-width:640px){#toasts{left:16px;right:16px;bottom:78px;align-items:stretch}}
+
+/* ================= photo upload ================= */
+.phead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.phead .l{margin:0}
+.up{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;padding:22px 16px;border:2px dashed color-mix(in srgb,var(--brand) 50%,var(--line));border-radius:18px;background:var(--brand-l);color:var(--brand);font-weight:800;font-size:14px;cursor:pointer;transition:.2s var(--ease)}
+.up .ico{width:26px;height:26px}
+.up small{color:var(--mid);font-weight:600;font-size:12px}
+.up:hover,.up.drag{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 16%,var(--card));transform:translateY(-1px)}
+.up.busy{pointer-events:none;opacity:.75}
+.up input{display:none}
+.upst{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--mid)}
+.upbar{height:6px;border-radius:6px;background:var(--line);margin-top:6px;overflow:hidden}
+.upbar i{display:block;height:100%;width:0;background:var(--brand-g);border-radius:6px;transition:width .3s}
+.th{position:relative;flex:none;width:104px;height:78px}
+.th img{width:104px;height:78px;object-fit:cover;border-radius:12px;border:1.5px solid var(--line)}
+.th .cv{position:absolute;left:6px;bottom:6px;background:var(--brand);color:#fff;border-radius:7px;padding:1px 7px;font-size:10.5px;font-weight:800}
+.th .rm,.th .mk{position:absolute;top:5px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(8,22,32,.72);color:#fff;display:grid;place-items:center;font-size:15px;line-height:1;backdrop-filter:blur(4px)}
+.th .rm{right:5px}.th .mk{left:5px;font-size:12px}
+.th .rm:hover{background:var(--red)}.th .mk:hover{background:var(--amber)}
+.th.bad img{display:none}
+.th.bad{border:1.5px dashed var(--red);border-radius:12px;display:grid;place-items:center;text-align:center;color:var(--red);font-size:11px;font-weight:700;padding:6px;background:var(--red-l)}
+.th.bad::after{content:"Link not working"}
+.hlp{display:flex;gap:12px;margin:14px 0;align-items:flex-start}
+.hlp b{font-size:14.5px!important}.hlp span:not(.no){font-size:13px!important}
+.hidea{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--brand-l);color:var(--brand);border-radius:14px;padding:12px 14px;margin-top:12px;font-weight:750;font-size:13px;line-height:1.5}
+.hidea i{font-style:normal;opacity:.6}
+.hex{margin-top:12px;border:1.5px dashed var(--line);border-radius:14px;padding:11px 13px;background:var(--card2);font-size:12px;color:var(--mid);line-height:1.7;word-break:break-all}
+.hex code{background:var(--brand-l);color:var(--brand);padding:1px 6px;border-radius:6px;font-weight:700}
+.hbad{margin-top:12px;border-radius:14px;padding:11px 13px;background:var(--red-l);color:var(--red);font-size:12.5px;font-weight:650;line-height:1.6}
+.hgo{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
+.hlp .no{flex:none;width:26px;height:26px;border-radius:50%;background:var(--brand-l);color:var(--brand);display:grid;place-items:center;font-weight:800;font-size:13px}
+.hlp b{display:block;font-size:13.5px}.hlp span{color:var(--mid);font-size:12.5px;line-height:1.55}
+.hlbox{border:1.5px solid var(--line);background:var(--card2);border-radius:16px;padding:4px 16px;margin-top:14px}
+.hlbox h4{font-size:13.5px;margin-top:14px;display:flex;gap:8px;align-items:center}
+.hlbox code{background:var(--brand-l);color:var(--brand);padding:1px 7px;border-radius:6px;font-weight:700;font-size:12px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ================= security layer ================= */
+html,body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+input,textarea,select,.inp{-webkit-user-select:text;user-select:text}
+img{-webkit-user-drag:none;user-drag:none}
+/* photo link box */
+.lkrow{display:flex;gap:8px;margin-top:14px}
+.lkrow .inp{flex:1;height:48px}
+.lkrow .btn{height:48px;padding:0 22px}
+.lkmsg{margin-top:9px;border-radius:12px;padding:10px 13px;font-size:12.5px;font-weight:650;line-height:1.55}
+.lkmsg.ok{background:var(--brand-l);color:var(--brand)}
+.lkmsg.err{background:var(--red-l);color:var(--red)}
+.lkmsg div+div{margin-top:3px}
+.thumbs{min-height:20px}
+/* +91 mobile field */
+.phf{position:relative}
+.phf em{position:absolute;left:1px;top:1px;bottom:1px;display:grid;place-items:center;padding:0 13px;font-style:normal;font-weight:800;color:var(--mid);background:var(--card2);border-right:1.5px solid var(--line);border-radius:11px 0 0 11px;pointer-events:none}
+.phf .inp{padding-left:64px;letter-spacing:.04em;font-weight:650}
+#shield{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:24px;background:var(--bg);color:var(--ink);font-weight:800;font-size:16px}
+#shield small{color:var(--soft);font-weight:600;font-size:13px}
+#shield.on{display:flex}
+@media print{html,body{display:none!important;visibility:hidden!important}}
 </style>
 </head>
 <body>
@@ -497,9 +567,61 @@ th.today{background:var(--brand-l);border-radius:10px 10px 0 0}
   <div class="savebar" id="savebar"><div class="in"><span><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>You have unsaved changes</span><div style="display:flex;gap:9px"><button class="btn" onclick="discard()">Discard</button><button class="btn pri" id="saveBtn" onclick="saveHotel()">Save changes</button></div></div></div>
 </div>
 
+<div id="shield" aria-hidden="true"><div style="font-size:42px">🔒</div>Hidden for security<small>Return to this window to continue.</small></div>
 <div id="modal"></div>
 <div id="toasts" aria-live="polite"></div>
 
+<script>
+/* ═══ SECURITY GUARD ═══════════════════════════════════════════════
+   These are deterrents. A web page can never fully stop a screenshot,
+   a phone camera, or "Save page as" from the browser menu.
+   Real protection = Firestore rules + hosting headers (see firebase.json notes).
+   Set GUARD=false while you are developing. */
+(()=>{
+const GUARD=true,COVER_ON_BLUR=true,IDLE_MIN=20;
+if(!GUARD)return;
+/* never allow the portal to be shown inside another site */
+if(top!==self){try{top.location=self.location}catch{document.documentElement.innerHTML=''}return}
+const sh=()=>document.getElementById('shield');
+let hold=0;
+const cover=ms=>{const s=sh();if(!s)return;s.classList.add('on');clearTimeout(hold);if(ms)hold=setTimeout(uncover,ms)};
+const uncover=()=>{const s=sh();if(s&&document.hasFocus()&&!document.hidden)s.classList.remove('on')};
+const say=m=>{try{toast(m,true)}catch{}};
+const isField=e=>e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+/* right-click and image dragging (typing fields keep their menu so owners can paste links) */
+document.addEventListener('contextmenu',e=>{if(!isField(e))e.preventDefault()});
+document.addEventListener('dragstart',e=>{if(e.target&&e.target.tagName==='IMG')e.preventDefault()});
+/* Save (Ctrl/Cmd+S), Print (P), View source (U), DevTools (F12, Ctrl+Shift+I/J/C), Mac screenshot keys */
+document.addEventListener('keydown',e=>{
+  const k=(e.key||'').toLowerCase(),c=e.ctrlKey||e.metaKey;
+  const macShot=e.metaKey&&e.shiftKey&&['Digit3','Digit4','Digit5'].includes(e.code);
+  const bad=k==='f12'||(c&&['s','p','u'].includes(k))||(c&&e.shiftKey&&['i','j','c','s'].includes(k))||(e.metaKey&&e.altKey&&['i','j','u'].includes(k))||macShot;
+  if(bad){e.preventDefault();e.stopPropagation();if(macShot)cover(2500);say('This action is disabled for security.')}
+  if(k==='printscreen'){cover(2500);try{navigator.clipboard.writeText(' ')}catch{}}
+},true);
+document.addEventListener('keyup',e=>{if((e.key||'').toLowerCase()==='printscreen'){cover(2500);try{navigator.clipboard.writeText(' ')}catch{}}},true);
+/* printing / "Save as PDF" */
+addEventListener('beforeprint',()=>cover());
+addEventListener('afterprint',()=>setTimeout(uncover,300));
+/* hide the screen when the window loses focus or the tab goes to the background (screen recorders, app switcher) */
+if(COVER_ON_BLUR){
+  addEventListener('blur',()=>cover());
+  addEventListener('focus',()=>setTimeout(uncover,150));
+  document.addEventListener('visibilitychange',()=>document.hidden?cover():setTimeout(uncover,150));
+}
+/* coming back with the Back button must never show an old copy of the page */
+addEventListener('pageshow',e=>{if(e.persisted)location.reload()});
+/* sign out after inactivity (not while there are unsaved changes or an upload running) */
+let last=Date.now();
+['pointerdown','keydown','scroll','touchstart'].forEach(ev=>addEventListener(ev,()=>{last=Date.now()},{passive:true,capture:true}));
+setInterval(()=>{
+  if(!sessionStorage.getItem('hoCred'))return;
+  if(Date.now()-last<IDLE_MIN*6e4)return;
+  if((typeof dirty!=='undefined'&&dirty)||(typeof uploading!=='undefined'&&uploading))return;
+  sessionStorage.removeItem('hoCred');location.reload();
+},30000);
+})();
+</script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <!-- SheetJS: builds the .xlsx file in the browser -->
@@ -518,6 +640,25 @@ const dayKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${
 const sod=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x};
 function nights(ci,co){const o=[],e=sod(co);for(let d=sod(ci);d<e;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))o.push(new Date(d));return o}
 
+/* ════════════════════════════════════════════════════════════════
+   PHOTO UPLOAD SETTINGS  (KeepJourney admin: fill this in ONCE)
+   Photos are uploaded to Cloudinary.
+
+   1. Sign up at https://cloudinary.com and copy your "Cloud name" from the Dashboard.
+   2. Settings (gear) → Upload → "Upload presets" → Add upload preset.
+      Signing mode = UNSIGNED, Folder = keepjourney/hotels,
+      allowed formats = jpg, png, webp, max file size about 10 MB. Save and copy the preset name.
+   3. Paste both values below.
+
+   Note: these two values are visible in the page source. That is normal for an
+   unsigned preset, so keep the format and size limits on the preset.
+   ════════════════════════════════════════════════════════════════ */
+const IMG_CFG={
+  cloudName:'YOUR_CLOUD_NAME',
+  uploadPreset:'YOUR_UNSIGNED_PRESET'
+};
+const MAX_PHOTOS=12,MAX_MB=15;
+
 /* icons */
 const I={
  cal:'<path d="M3 9h18M8 3v4M16 3v4"/><rect x="3" y="5" width="18" height="16" rx="3"/>',
@@ -535,7 +676,9 @@ const I={
  phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
  check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
- download:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>'
+ download:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
+ upload:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+ help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8M12 17h.01"/>'
 };
 const ic=(n,c='')=>`<svg class="ico ${c}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
 
@@ -549,16 +692,16 @@ function toast(m,bad){
 }
 
 /* modal system: returns a promise */
-function modal(html){
+function modal(html,cls=''){
   return new Promise(res=>{
     const prev=document.activeElement;
-    $('modal').innerHTML=`<div class="mo" id="mo"><div class="mbox" role="dialog" aria-modal="true">${html}</div></div>`;
+    $('modal').innerHTML=`<div class="mo" id="mo"><div class="mbox ${cls}" role="dialog" aria-modal="true">${html}</div></div>`;
     const close=v=>{$('modal').innerHTML='';document.removeEventListener('keydown',key);prev&&prev.focus&&prev.focus();res(v)};
     const key=e=>{if(e.key==='Escape')close(null)};
     document.addEventListener('keydown',key);
-    $('mo').addEventListener('mousedown',e=>{if(e.target.id==='mo')close(null)});
+    $('mo').addEventListener('mousedown',e=>{if(e.target.id==='mo'&&e.clientX<e.target.clientWidth)close(null)});
     window._mc=close;
-    const f=$('modal').querySelector('[autofocus],input,button.pri');f&&f.focus();
+    const f=$('modal').querySelector('[autofocus],input,button.pri');f&&f.focus({preventScroll:true});$('mo').scrollTop=0;
   });
 }
 const mclose=v=>window._mc&&window._mc(v);
@@ -566,7 +709,7 @@ const ask=(title,msg,okText,danger)=>modal(`<h3>${esc(title)}</h3><p class="msg"
 
 /* bookings = live bookings from the app + backup-only bookings that were deleted in the app */
 let owner=null,hotels=[],hotel=null,bookings=[],live=[],bk={},bkOk=true,bkWarned=false,tok=0,unsub=null,rooms=[],loaded=false,range=14,dirty=false,filt='';
-let lastAvail=null;
+let lastAvail=null,uploading=false,linking=false;
 const STAT={0:['Requested','t0'],1:['Confirmed','t1'],2:['Rejected','t2'],3:['Cancelled','t3'],4:['Completed','t4']};
 const DEL_LABEL='Deleted in app';
 
@@ -583,7 +726,7 @@ $('tabs').children[0].innerHTML=ic('inbox')+'Bookings<span id="pbadge" class="bd
 $('tabs').children[1].innerHTML=ic('grid')+'Availability';
 $('tabs').children[2].innerHTML=ic('home')+'My hotel';
 addEventListener('online',()=>$('netbar').classList.add('hide'));addEventListener('offline',()=>$('netbar').classList.remove('hide'));
-addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+addEventListener('beforeunload',e=>{if(dirty||uploading){e.preventDefault();e.returnValue=''}});
 
 /* ── auth: owner doc holds password + the only hotels they may touch ── */
 async function doLogin(e){
@@ -601,7 +744,7 @@ async function doLogin(e){
   }catch(x){fail('Could not sign in: '+x.message)}
   finally{btn.disabled=false;btn.textContent='Sign in'}
 }
-function logout(){if(dirty&&!confirm('You have unsaved changes. Sign out anyway?'))return;dirty=false;if(unsub)unsub();sessionStorage.removeItem('hoCred');location.reload()}
+function logout(){if((dirty||uploading)&&!confirm('You have unsaved changes or an upload in progress. Sign out anyway?'))return;dirty=false;uploading=false;if(unsub)unsub();sessionStorage.removeItem('hoCred');location.reload()}
 async function boot(){
   const ids=(Array.isArray(owner.hotelIds)?owner.hotelIds:[]).slice(0,20);
   const snaps=await Promise.all(ids.map(i=>db.collection('hotels').doc(i).get()));
@@ -624,7 +767,7 @@ function tab(t){
   if(t==='avail')loadAvail();
   scrollTo({top:0,behavior:'smooth'});
 }
-async function switchHotel(id){if(dirty&&!(await ask('Discard changes?','You have unsaved changes for this hotel.','Discard',true))){$('hsel').value=hotel.id;return}pickHotel(id)}
+async function switchHotel(id){if(dirty&&!(await ask('Discard changes?','You have unsaved changes for this hotel.','Discard',true))){$('hsel').value=hotel.id;return}if(uploading){toast('Please wait for the photo upload to finish.',true);$('hsel').value=hotel.id;return}pickHotel(id)}
 
 /* ── backup helpers ── */
 const sigOf=b=>[b.status,b.advancePaid,b.amount,b.refundDue?1:0,b.advanceNote||'',b.paymentStatus||'',b.updatedAt&&b.updatedAt.toMillis?b.updatedAt.toMillis():0].join('|');
@@ -951,7 +1094,7 @@ async function loadAvail(){
 
 /* ── my hotel: only these fields can be changed by an owner ── */
 function markDirty(){if(!dirty){dirty=true}$('savebar').classList.add('on')}
-function discard(){dirty=false;$('savebar').classList.remove('on');renderForm();toast('Changes discarded')}
+function discard(){if(uploading){toast('Please wait for the photo upload to finish.',true);return}dirty=false;$('savebar').classList.remove('on');renderForm();toast('Changes discarded')}
 Object.assign(I,{
  img:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/>',
@@ -964,6 +1107,8 @@ let closed=new Set(),calM=new Date(),calMode='single',anchor=null;
 const tg=(id,on,t,d)=>`<label class="tg"><input type="checkbox" id="${id}" ${on?'checked':''}/><span class="trk"></span><span class="tx"><b>${t}</b><small>${d}</small></span></label>`;
 const fh=(ico,cls,t,s,extra='')=>`<div class="fh"><div class="ib ${cls}">${ic(ico)}</div><div class="grow"><h3>${t}</h3><p>${s}</p></div>${extra}</div>`;
 const okUrl=u=>/^https?:\/\//i.test(u);
+/* Indian mobile: keep only the 10 digits (removes +91, 91, 0, spaces, dashes) */
+function cleanPhone(v){let d=String(v==null?'':v).replace(/\D/g,'');if(d.length>10&&d.startsWith('91'))d=d.slice(2);if(d.length>10&&d.startsWith('0'))d=d.slice(1);return d.slice(0,10)}
 function jump(id){const e=$(id);e&&e.scrollIntoView({behavior:'smooth',block:'start'})}
 function renderForm(){
   const h=hotel;rooms=(Array.isArray(h.roomTypes)?h.roomTypes:[]).map(r=>({...r}));
@@ -981,13 +1126,25 @@ function renderForm(){
 
   <div class="card fs" id="s_about">${fh('home','c-green','Contact and details','What guests see on your listing.')}<div class="fb">
     <div class="fg"><label class="l">Hotel name</label><input class="inp" value="${esc(h.name)}" disabled/><div class="hint">To change the name or location, contact KeepJourney.</div></div>
-    <div class="row"><div class="fg"><label class="l" for="f_phone">Phone</label><input class="inp" id="f_phone" type="tel" value="${esc(h.phone)}"/></div>
+    <div class="row"><div class="fg"><label class="l" for="f_phone">Mobile number</label><div class="phf"><em>+91</em><input class="inp" id="f_phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="14" placeholder="10 digit number" value="${esc(cleanPhone(h.phone))}" oninput="this.value=cleanPhone(this.value)"/></div><div class="hint">Type only the 10 digits. +91 is added for you.</div></div>
     <div class="fg"><label class="l">Check-in / check-out time</label><div class="row" style="gap:8px"><input class="inp" id="f_ci" value="${esc(h.checkInTime)}" placeholder="12:00 PM" aria-label="Check-in time"/><input class="inp" id="f_co" value="${esc(h.checkOutTime)}" placeholder="11:00 AM" aria-label="Check-out time"/></div></div></div>
     <div class="fg"><label class="l" for="f_desc">Description</label><textarea class="inp" id="f_desc" rows="3" placeholder="Tell guests what makes your stay special">${esc(h.description)}</textarea></div>
     <div class="fg" style="margin:0"><label class="l" for="f_addr">Address</label><textarea class="inp" id="f_addr" rows="2">${esc(h.address)}</textarea></div></div></div>
 
   <div class="card fs" id="s_media">${fh('img','c-sky','Photos and amenities','Good photos get more bookings.')}<div class="fb">
-    <div class="fg"><label class="l" for="f_img">Photo links (comma separated, first one is the cover)</label><textarea class="inp" id="f_img" rows="2" placeholder="https://...jpg, https://...jpg">${esc((h.images||[]).join(', '))}</textarea><div class="thumbs" id="imgPrev"></div></div>
+    <div class="fg">
+      <div class="phead"><label class="l" for="lk_in" style="margin:0">Hotel photos <span style="color:var(--soft);font-weight:600">(first photo is the cover)</span></label><button type="button" class="btn sm" onclick="showPhotoHelp()">${ic('help')}How to get a photo link</button></div>
+      ${uploadOn()?`<label class="up" id="upZone" for="f_file" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="event.preventDefault();this.classList.remove('drag');pickPhotos(event.dataTransfer.files)">
+        ${ic('upload')}<span>Upload photos from your phone or computer</span><small>JPG or PNG, up to ${MAX_PHOTOS} photos. We resize them automatically.</small>
+        <input type="file" id="f_file" accept="image/*" multiple onclick="event.stopPropagation()" oninput="event.stopPropagation()" onchange="event.stopPropagation();pickPhotos(this.files);this.value=''"/>
+      </label>`:''}
+      <div class="lkrow"><input class="inp" id="lk_in" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste your photo link here (https://res.cloudinary.com/... or https://i.ibb.co/...)" aria-label="Photo link" onpaste="setTimeout(addLinks,60)" onkeydown="if(event.key==='Enter'){event.preventDefault();addLinks()}" oninput="event.stopPropagation()" onchange="event.stopPropagation()"/><button type="button" class="btn pri" id="lk_btn" onclick="addLinks()">${ic('plus')}Add</button></div>
+      <div class="lkmsg hide" id="lk_msg" role="status"></div>
+      <div class="hint">Paste a link and it is added and checked automatically. You can paste several links with a space between them.</div>
+      <div class="upst hide" id="upSt"><span id="upTx"></span><div class="upbar"><i id="upBar"></i></div></div>
+      <div class="thumbs" id="imgPrev"></div>
+      <textarea id="f_img" class="hide" aria-hidden="true">${esc((h.images||[]).join(', '))}</textarea>
+    </div>
     <div class="fg" style="margin:0"><label class="l" for="f_am">Amenities (comma separated)</label><input class="inp" id="f_am" value="${esc((h.amenities||[]).join(', '))}" placeholder="WiFi, Parking, AC, Breakfast"/><div class="pv" id="amPrev"></div></div></div></div>
 
   <div class="card fs" id="s_rules">${fh('shield','c-amber','Booking rules','Stay limits, payment and cancellations.')}<div class="fb">
@@ -1026,12 +1183,173 @@ function syncDeps(){
   const fo=$('foodBox'),fb=$('fdBox');if(!fo)return;
   fo.classList.toggle('dim',!$('f_food').checked);fb.classList.toggle('dim',!$('f_fd').checked);
 }
+
+/* ── photos: list helpers, thumbnails, upload ── */
+const imgList=()=>($('f_img')?$('f_img').value:'').split(',').map(s=>s.trim()).filter(okUrl);
+function setImgs(a){$('f_img').value=a.join(', ');markDirty();updatePrev();updateHero()}
+function imgDel(i){const a=imgList();a.splice(i,1);setImgs(a)}
+function imgCover(i){const a=imgList(),[x]=a.splice(i,1);a.unshift(x);setImgs(a);toast('Cover photo changed')}
 function updatePrev(){
   if(!$('amPrev'))return;
   const am=$('f_am').value.split(',').map(s=>s.trim()).filter(Boolean);
   $('amPrev').innerHTML=am.map(a=>`<span>${esc(a)}</span>`).join('');
-  const im=$('f_img').value.split(',').map(s=>s.trim()).filter(okUrl).slice(0,12);
-  $('imgPrev').innerHTML=im.map(u=>`<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()"/>`).join('');
+  const im=imgList().slice(0,MAX_PHOTOS);
+  $('imgPrev').innerHTML=!im.length?'<p class="hint" style="margin:6px 0 0">No photos yet. Paste a photo link above.</p>':im.map((u,i)=>`<div class="th"><img src="${esc(u)}" alt="Hotel photo ${i+1}" loading="lazy" onerror="this.parentNode.classList.add('bad')"/>${i===0?'<b class="cv">Cover</b>':`<button type="button" class="mk" onclick="imgCover(${i})" title="Make cover photo" aria-label="Make cover photo">★</button>`}<button type="button" class="rm" onclick="imgDel(${i})" title="Remove photo" aria-label="Remove photo">×</button></div>`).join('');
+}
+const cloudOn=()=>!!IMG_CFG.cloudName&&!!IMG_CFG.uploadPreset&&!/^YOUR_/.test(IMG_CFG.cloudName)&&!/^YOUR_/.test(IMG_CFG.uploadPreset);
+const uploadOn=()=>cloudOn();
+/* shrink big phone photos to max 1600px JPEG before upload (faster, cheaper, loads quicker in the app) */
+function shrink(file,maxSide=1600,q=.82){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{
+      URL.revokeObjectURL(url);
+      const r=Math.min(1,maxSide/Math.max(im.width,im.height)),c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(im.width*r));c.height=Math.max(1,Math.round(im.height*r));
+      const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+      c.toBlob(b=>b?res(b):rej(new Error('Could not process this image')),'image/jpeg',q);
+    };
+    im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('This file is not a supported image'))};
+    im.src=url;
+  });
+}
+async function upCloudinary(blob){
+  const f=new FormData();f.append('file',blob);f.append('upload_preset',IMG_CFG.uploadPreset);
+  const r=await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(IMG_CFG.cloudName)}/image/upload`,{method:'POST',body:f});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.secure_url)throw new Error((j.error&&j.error.message)||'Upload failed');
+  /* chained transformations (slashes, no commas, so the comma-separated list stays valid) */
+  return j.secure_url.replace('/upload/','/upload/f_auto/q_auto/w_1600/');
+}
+function upUI(on,txt,pct){
+  const z=$('upZone'),s=$('upSt');if(!z)return;
+  z.classList.toggle('busy',on);s.classList.toggle('hide',!on);
+  if(txt!=null)$('upTx').textContent=txt;if(pct!=null)$('upBar').style.width=pct+'%';
+}
+async function pickPhotos(files){
+  if(uploading)return;
+  files=[...(files||[])].filter(f=>/^image\//.test(f.type));
+  if(!files.length){toast('Choose image files (JPG or PNG).',true);return}
+  if(!uploadOn()){toast('Photo upload is not switched on yet. Paste photo links instead, or contact KeepJourney.',true);showPhotoHelp();return}
+  let list=imgList();const room=MAX_PHOTOS-list.length;
+  if(room<=0){toast(`You already have ${MAX_PHOTOS} photos. Remove one first.`,true);return}
+  if(files.length>room){toast(`Only ${room} more photo${room>1?'s':''} can be added. Extra files were skipped.`,true);files=files.slice(0,room)}
+  uploading=true;let ok=0,fail=0;
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    upUI(true,`Uploading photo ${i+1} of ${files.length}…`,Math.round(i/files.length*100));
+    try{
+      if(f.size>MAX_MB*1048576)throw new Error(`${f.name||'Photo'} is bigger than ${MAX_MB} MB`);
+      const blob=await shrink(f);
+      const url=await upCloudinary(blob);
+      list=imgList();list.push(url);setImgs(list);ok++;
+    }catch(e){fail++;toast((f.name?f.name+': ':'')+e.message,true)}
+  }
+  uploading=false;upUI(true,fail?`${ok} uploaded, ${fail} failed`:`${ok} photo${ok>1?'s':''} uploaded`,100);
+  setTimeout(()=>upUI(false),2200);
+  if(ok)toast(`${ok} photo${ok>1?'s':''} added. Tap Save changes to publish.`);
+}
+/* ── paste-a-link box: cleans, fixes and checks every link before it is added ── */
+const shortTxt=t=>t.length>46?t.slice(0,43)+'…':t;
+function fixLink(raw){
+  let u=String(raw).trim().replace(/^["'“‘<(\[]+|["'”’>)\]]+$/g,'');
+  if(!u)return{err:'The link is empty.'};
+  if(/^\/\//.test(u))u='https:'+u;
+  else if(!/^[a-z][a-z0-9+.-]*:/i.test(u)){
+    if(/^[\w-]+(\.[\w-]+)+(\/|$)/.test(u))u='https://'+u;
+    else return{err:`“${shortTxt(u)}” is not a link. A photo link starts with https://`};
+  }
+  u=u.replace(/^http:\/\//i,'https://');
+  let U;try{U=new URL(u)}catch{return{err:`“${shortTxt(u)}” is not a valid link.`}}
+  if(U.protocol!=='https:')return{err:'Only https:// links work.'};
+  const h=U.hostname.replace(/^www\./,'').toLowerCase();
+  if(/(^|\.)(drive|docs|photos)\.google\.com$|^photos\.app\.goo\.gl$|^goo\.gl$/.test(h))return{err:'Google Drive and Google Photos links do not work. Upload the photo to Cloudinary or ImgBB and copy its link.'};
+  if(/(^|\.)(facebook|fb|instagram|pinterest|whatsapp)\.com$|^(fb\.me|wa\.me|pin\.it|instagr\.am)$/.test(h))return{err:'Facebook, Instagram, Pinterest and WhatsApp links do not work. Use the photo link from Cloudinary or ImgBB.'};
+  if(/(^|\.)cloudinary\.com$/.test(h)&&!/^res(-\d+)?\.cloudinary\.com$/.test(h))return{err:'That is the Cloudinary website address, not the photo. Open the photo in Media Library and tap Copy URL. The photo link starts with https://res.cloudinary.com/'};
+  if(/^(ibb\.co|imgbb\.com)$/.test(h))return{err:'That is the ImgBB page, not the photo itself. On the ImgBB page open the dropdown above the link box, choose “Direct links”, and copy the link that starts with https://i.ibb.co/'};
+  /* Cloudinary photo: serve a lighter, auto-formatted copy */
+  if(/^res(-\d+)?\.cloudinary\.com$/.test(h)){
+    const m=U.pathname.match(/^(\/[^/]+\/image\/upload\/)(v\d+\/.+)$/);
+    if(m)U.pathname=m[1]+'f_auto/q_auto/w_1600/'+m[2];
+    else if(!/\/image\/upload\//.test(U.pathname))return{err:'This Cloudinary link is not a photo link. It should contain /image/upload/'};
+  }
+  return{url:U.toString()};
+}
+function probe(url,ms=15000){
+  return new Promise(res=>{
+    const im=new Image(),t=setTimeout(()=>{im.src='';res(false)},ms);
+    im.referrerPolicy='no-referrer';
+    im.onload=()=>{clearTimeout(t);res(im.naturalWidth>0)};
+    im.onerror=()=>{clearTimeout(t);res(false)};
+    im.src=url;
+  });
+}
+function lkMsg(lines,kind){
+  const m=$('lk_msg');if(!m)return;
+  if(!lines||!lines.length){m.classList.add('hide');m.innerHTML='';return}
+  m.className='lkmsg '+kind;m.innerHTML=(Array.isArray(lines)?lines:[lines]).map(l=>`<div>${esc(l)}</div>`).join('');
+}
+async function addLinks(){
+  const inp=$('lk_in'),btn=$('lk_btn');if(!inp||linking)return true;
+  const raw=inp.value.trim();if(!raw){return true}
+  const parts=[...new Set(raw.split(/[\s,;]+/).filter(Boolean))];
+  const cur=imgList();let room=MAX_PHOTOS-cur.length;
+  if(room<=0){lkMsg(`You already have ${MAX_PHOTOS} photos. Remove one first.`,'err');return false}
+  linking=true;btn.disabled=true;btn.innerHTML='<span class="spin"></span>Checking';lkMsg(['Checking your photo link…'],'ok');
+  const good=[],errs=[],keep=[];let dup=0;
+  for(const p of parts){
+    if(good.length>=room){errs.push(`Limit of ${MAX_PHOTOS} photos reached. Some links were not added.`);keep.push(p);break}
+    const r=fixLink(p);
+    if(r.err){errs.push(r.err);keep.push(p);continue}
+    if(cur.includes(r.url)||good.includes(r.url)){dup++;continue}
+    if(await probe(r.url))good.push(r.url);
+    else{errs.push(`This link did not open as a photo: ${shortTxt(p)}. Copy the direct photo link (Cloudinary: Copy URL in Media Library. ImgBB: Direct links), not the address bar.`);keep.push(p)}
+  }
+  linking=false;btn.disabled=false;btn.innerHTML=ic('plus')+'Add';
+  if(good.length){setImgs([...cur,...good])}
+  inp.value=keep.join(' ');
+  const out=[];
+  if(good.length)out.push(`✓ ${good.length} photo${good.length>1?'s':''} added. Tap Save changes to publish.`);
+  if(dup)out.push(`${dup} link${dup>1?'s were':' was'} already added.`);
+  if(errs.length){lkMsg([...out,...errs],'err');if(!good.length){inp.focus()}}
+  else lkMsg(out.length?out:null,'ok');
+  return !errs.length;
+}
+/* owner help: how to get a photo link */
+function helpTab(k){
+  ['c','i'].forEach(x=>{const p=$('hp_'+x),b=$('hb_'+x);if(p)p.classList.toggle('hide',x!==k);if(b)b.classList.toggle('on',x===k)});
+}
+function goPasteBox(){
+  mclose(true);
+  setTimeout(()=>{const e=$('lk_in');if(e){e.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>e.focus({preventScroll:true}),500)}},120);
+}
+function showPhotoHelp(){
+  const up=uploadOn(),A='target="_blank" rel="noopener noreferrer"';
+  modal(`<h3>How to add your hotel photos</h3>
+    <div class="hidea">📷 Upload photo <i>→</i> 🔗 Copy its link <i>→</i> 📋 Paste the link here</div>
+    <p class="msg" style="margin-top:10px;font-size:13px">You only need <b>one</b> free website. Pick one below and follow the 3 steps. It takes about 5 minutes the first time.</p>
+
+    <div class="seg" style="margin-top:14px;width:100%"><button type="button" id="hb_c" class="on" style="flex:1" onclick="helpTab('c')">Cloudinary<br><small style="font-weight:600;opacity:.75">best photo quality</small></button><button type="button" id="hb_i" style="flex:1" onclick="helpTab('i')">ImgBB<br><small style="font-weight:600;opacity:.75">easiest to use</small></button></div>
+
+    <div id="hp_c">
+      <div class="hlp"><span class="no">1</span><div><b>Make a free account</b><span>Tap the button below. Tap “Sign up for free”. Use your Google account or your email. Open the email they send you and tap “Verify”.</span><div class="hgo"><a class="btn pri sm" href="https://cloudinary.com" ${A}>Open cloudinary.com</a></div></div></div>
+      <div class="hlp"><span class="no">2</span><div><b>Upload your photo</b><span>After you sign in, tap <b style="display:inline">Media Library</b> (also called “Assets”). Tap <b style="display:inline">Upload</b> and choose your hotel photos.</span></div></div>
+      <div class="hlp"><span class="no">3</span><div><b>Copy the photo link</b><span>Tap your photo to open it. Tap <b style="display:inline">Copy URL</b> (it may say “Asset URL”). The link is now copied.</span></div></div>
+      <div class="hex">Your link looks like this:<br><code>https://res.cloudinary.com/yourname/image/upload/.../photo.jpg</code></div>
+    </div>
+
+    <div id="hp_i" class="hide">
+      <div class="hlp"><span class="no">1</span><div><b>Make a free account (recommended)</b><span>Tap the button below. Tap “Sign up”. Use your Google account or your email. An account keeps all your photos safe in one place.</span><div class="hgo"><a class="btn pri sm" href="https://imgbb.com" ${A}>Open imgbb.com</a></div></div></div>
+      <div class="hlp"><span class="no">2</span><div><b>Upload your photo</b><span>Tap <b style="display:inline">Start uploading</b> and choose your photo. Under “Auto delete” choose <b style="display:inline">Don’t auto delete</b>, or the photo can disappear later. Tap <b style="display:inline">Upload</b>.</span></div></div>
+      <div class="hlp"><span class="no">3</span><div><b>Copy the direct link</b><span>On the next page, find the small dropdown above the link box and choose <b style="display:inline">Direct links</b>. Tap the copy button next to the link that ends with .jpg or .png.</span></div></div>
+      <div class="hex">Your link looks like this:<br><code>https://i.ibb.co/abc123/photo.jpg</code></div>
+    </div>
+
+    <div class="hlp" style="margin-top:20px"><span class="no">4</span><div><b>Paste the link here and save</b><span>Come back to this page. Paste the link in the box called <b style="display:inline">“Paste your photo link”</b>. It is added by itself. Do the same for every photo. At the end tap <b style="display:inline">Save changes</b>.</span><div class="hgo"><button type="button" class="btn sm" onclick="goPasteBox()">${ic('plus')}Take me to the paste box</button></div></div></div>
+
+    ${up?`<div class="hex" style="border-style:solid">⚡ <b>Shortcut:</b> you can also tap the green <b>Upload photos</b> box and choose photos from your phone. No account is needed for that.</div>`:''}
+    <div class="hbad"><b>Do not copy:</b> the address from the top of the browser, or links from Google Drive, WhatsApp, Facebook or Instagram. They will not work. If a red message appears after you paste, read it. It tells you what to fix.</div>
+    <div class="mact stick"><button class="btn pri" onclick="mclose(true)">Got it</button></div>`,'wide');
 }
 function updateHero(){
   if(!$('hp_pill'))return;
@@ -1118,6 +1436,12 @@ function delRoom(i){
   rooms.splice(i,1);drawRooms();markDirty();
 }
 async function saveHotel(){
+  if(uploading||linking){toast('Please wait a moment, your photo is still being checked.',true);return}
+  if($('lk_in')&&$('lk_in').value.trim()){
+    /* owner pasted a link but did not press Add: add it now */
+    const ok=await addLinks();
+    if(!ok){jump('s_media');toast('Please fix or clear the photo link box, then save again.',true);return}
+  }
   const g=id=>$(id).value.trim(),n=id=>parseFloat($(id).value)||0,btn=$('saveBtn');
   const rt=rooms.map(r=>({id:r.id,name:String(r.name||'').trim(),description:String(r.description||'').trim(),price:parseFloat(r.price)||0,maxGuests:parseInt(r.maxGuests)||0,totalRooms:parseInt(r.totalRooms)||0,fullDayPrice:parseFloat(r.fullDayPrice)||0}));
   for(const r of rt)if(!r.name||r.price<=0||r.maxGuests<1||r.totalRooms<1){toast('Every room type needs a name, price, max guests and total rooms.',true);return}
@@ -1128,9 +1452,14 @@ async function saveHotel(){
   const mn=parseInt(g('f_min'))||1,mx=parseInt(g('f_max'))||30;if(mn>mx){toast('Min nights cannot be more than max nights.',true);return}
   const blk=[...new Set(($('f_blk').value||'').split(/[\s,]+/).filter(Boolean))],bad=blk.find(d=>!/^\d{4}-\d{2}-\d{2}$/.test(d));
   if(bad){toast(`"${bad}" is not a valid date. Use YYYY-MM-DD.`,true);return}
+  const imgs=g('f_img').split(',').map(s=>s.trim()).filter(Boolean),badImg=imgs.find(u=>!okUrl(u));
+  if(badImg){toast('A photo link is not valid. Every link must start with https://',true);return}
+  if(imgs.length>MAX_PHOTOS){toast(`You can add up to ${MAX_PHOTOS} photos. Remove some and save again.`,true);return}
+  const ph=cleanPhone($('f_phone').value);
+  if($('f_phone').value.trim()&&ph.length!==10){jump('s_about');toast('Enter a 10 digit mobile number. +91 is already added.',true);return}
   // whitelist: owners can never touch name, rating, location, approval or other hotels
-  const data={phone:g('f_phone'),checkInTime:g('f_ci'),checkOutTime:g('f_co'),description:g('f_desc'),address:g('f_addr'),
-    amenities:g('f_am').split(',').map(s=>s.trim()).filter(Boolean),images:g('f_img').split(',').map(s=>s.trim()).filter(Boolean),
+  const data={phone:ph?'+91'+ph:'',checkInTime:g('f_ci'),checkOutTime:g('f_co'),description:g('f_desc'),address:g('f_addr'),
+    amenities:g('f_am').split(',').map(s=>s.trim()).filter(Boolean),images:imgs,
     isBookable:bookable,payAtHotel:$('f_pah').checked,minNights:mn,maxNights:mx,
     freeCancelHours:isNaN(parseFloat(g('f_fc')))?24:parseFloat(g('f_fc')),advancePercent:Math.min(100,Math.max(0,n('f_adv'))),
     cancellationPolicy:g('f_pol'),blockedDates:blk,
@@ -1201,6 +1530,216 @@ async function saveAlerts(){
   alerts.desktop=d;try{localStorage.setItem('kjAlerts',JSON.stringify(alerts))}catch{}
   renderBell();mclose(true);toast('Alert settings saved');
 }
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+  KeepJourney · My hotel page UPGRADE
+  PASTE THIS WHOLE BLOCK right before </body> (after your last </script>).
+  Nothing else in your file needs to change. All field IDs are kept,
+  so saving, photos, calendar, Firebase and Excel keep working.
+═══════════════════════════════════════════════════════════════ -->
+<style id="kj-v2">
+/* section status pill + fold */
+.sb{display:inline-flex;align-items:center;gap:6px;border-radius:30px;padding:4px 12px;font-size:11.5px;font-weight:750;white-space:nowrap}
+.sb::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.sb.ok{background:var(--brand-l);color:var(--brand)}
+.sb.todo{background:var(--amber-l);color:var(--amber)}
+.sb.opt{background:var(--card2);color:var(--soft);border:1px solid var(--line)}
+.fh{cursor:pointer;user-select:none}
+.fh .chv{color:var(--soft);transform:rotate(90deg);transition:transform .2s}
+.fs.shut .chv{transform:none}
+.fs.shut .fb{display:none}
+.fs.shut .fh{border-bottom:none}
+@media(max-width:560px){.fh{flex-wrap:wrap}.fh .sb{order:5}}
+
+/* nav pills with status dot */
+.hnav .dt{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+.hnav button.ok .dt{background:var(--brand)}
+.hnav button.todo .dt{background:var(--amber)}
+
+/* one-tap suggestions */
+.qpick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:9px}
+.qpick .hint{margin:0 4px 0 0}
+.qp{border:1.5px solid var(--line);background:var(--card);border-radius:30px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--mid);transition:.15s}
+.qp:hover{border-color:var(--brand);color:var(--brand)}
+.qp.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.cc{float:right;font-size:11.5px;color:var(--soft);font-weight:650}
+
+/* room cards */
+.room2{border:1.5px solid var(--line);background:var(--card);border-radius:20px;margin-bottom:14px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.room2:focus-within{border-color:var(--brand);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 12%,transparent)}
+.rh{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card2);border-bottom:1px solid var(--line)}
+.rn{width:32px;height:32px;border-radius:11px;background:var(--brand-g);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.rh .inp{flex:1;min-width:0;font-weight:700}
+.rb{padding:14px}
+.rg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rsum{margin-top:14px;background:var(--brand-l);color:var(--brand);border-radius:12px;padding:9px 13px;font-size:12.5px;font-weight:650}
+.rsum b{font-size:15px;letter-spacing:-.02em}
+@media(max-width:620px){.rg{grid-template-columns:1fr 1fr}.rh{flex-wrap:wrap}.rh .inp{flex-basis:calc(100% - 50px)}}
+@media(max-width:380px){.rg{grid-template-columns:1fr}}
+
+/* calmer, clearer form feel */
+.fb .fg>.l{font-size:12.5px;color:var(--ink)}
+.fs{border-radius:22px}
+.tg{background:var(--card)}
+.tg:has(input:checked){border-color:color-mix(in srgb,var(--brand) 55%,var(--line));background:var(--brand-l)}
+</style>
+
+<script>
+/* ═══ My hotel upgrade (wraps existing functions, keeps all IDs) ═══ */
+(()=>{
+const AM=['WiFi','Parking','AC','Breakfast','Geyser','TV','Power backup','Room service','Lift','CCTV','Restaurant','Swimming pool'];
+const CI=['10:00 AM','12:00 PM','2:00 PM'],CO=['10:00 AM','11:00 AM','12:00 PM'],AD=[0,25,50,100];
+const SEC=['s_about','s_media','s_rules','s_cal','s_food','s_rooms'];
+const setVal=(id,v)=>{const e=$(id);if(!e)return;e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}))};
+const amList=()=>$('f_am').value.split(',').map(s=>s.trim()).filter(Boolean);
+
+/* add status pill, fold arrow and nav dots (runs after every renderForm) */
+function enhance(){
+  const f=$('hform');if(!f)return;
+  f.querySelectorAll('.fs').forEach(s=>{
+    const h=s.querySelector('.fh');if(!h)return;
+    h.insertAdjacentHTML('beforeend','<span class="sb"></span>'+ic('chevR','chv'));
+    h.addEventListener('click',e=>{if(e.target.closest('button,a,input'))return;s.classList.toggle('shut')});
+  });
+  f.querySelectorAll('.hnav button').forEach((b,i)=>{b.dataset.s=SEC[i];b.insertAdjacentHTML('afterbegin','<i class="dt"></i>')});
+  const q=(sel,html)=>{const el=$(sel);if(el)el.insertAdjacentHTML('afterend',html)};
+  q('amPrev','<div class="qpick" id="amQ"></div>');
+  const co=$('f_co');if(co)co.parentNode.insertAdjacentHTML('afterend','<div class="qpick" id="tiQ"></div>');
+  const ad=$('f_adv');if(ad)ad.parentNode.insertAdjacentHTML('afterend','<div class="qpick" id="advQ"></div>');
+  const dl=document.querySelector('label[for=f_desc]');if(dl)dl.insertAdjacentHTML('beforeend','<span class="cc" id="ccD"></span>');
+  const pl=document.querySelector('label[for=f_pol]');
+  if(pl&&$('f_pol'))$('f_pol').insertAdjacentHTML('afterend','<div class="qpick" id="polQ"></div>');
+}
+
+/* tap-to-fill suggestion chips */
+const chip=(k,v,label,on)=>`<button type="button" class="qp ${on?'on':''}" data-q="${k}|${esc(v)}">${esc(label)}</button>`;
+const POL=['Free cancellation up to 24 hours before check-in','No refund on cancellation','50% refund if cancelled 48 hours before check-in'];
+function chips(){
+  if(!$('amQ'))return;
+  const have=amList().map(x=>x.toLowerCase());
+  $('amQ').innerHTML='<span class="hint">Tap to add:</span>'+AM.map(a=>chip('am',a,a,have.includes(a.toLowerCase()))).join('');
+  $('tiQ').innerHTML='<span class="hint">Check-in:</span>'+CI.map(t=>chip('ci',t,t,$('f_ci').value.trim()===t)).join('')+'<span class="hint" style="margin-left:8px">Check-out:</span>'+CO.map(t=>chip('co',t,t,$('f_co').value.trim()===t)).join('');
+  const a=parseFloat($('f_adv').value)||0;
+  $('advQ').innerHTML='<span class="hint">Quick pick:</span>'+AD.map(p=>chip('adv',p,p===0?'No advance':p+'%',a===p)).join('');
+  if($('polQ'))$('polQ').innerHTML='<span class="hint">Use:</span>'+POL.map(p=>chip('pol',p,p.length>34?p.slice(0,32)+'…':p,$('f_pol').value.trim()===p)).join('');
+  const n=$('f_desc').value.length;if($('ccD'))$('ccD').textContent=n+' characters'+(n&&n<80?' · a bit short':'');
+}
+$('hform').addEventListener('click',e=>{
+  const b=e.target.closest('[data-q]');if(!b)return;
+  const i=b.dataset.q.indexOf('|'),k=b.dataset.q.slice(0,i),v=b.dataset.q.slice(i+1);
+  if(k==='am'){const l=amList(),j=l.findIndex(x=>x.toLowerCase()===v.toLowerCase());j>-1?l.splice(j,1):l.push(v);setVal('f_am',l.join(', '))}
+  if(k==='ci')setVal('f_ci',v);
+  if(k==='co')setVal('f_co',v);
+  if(k==='adv')setVal('f_adv',v);
+  if(k==='pol')setVal('f_pol',v);
+});
+
+/* section status: Complete / Needs info / Optional */
+function status(){
+  if(!$('f_ci'))return;
+  const v=id=>$(id)?$(id).value.trim():'';
+  const tk=dayKey(sod(new Date()));
+  const st={
+    s_about:!!(v('f_phone')&&v('f_ci')&&v('f_co')&&v('f_desc')&&v('f_addr')),
+    s_media:!!(v('f_img')&&v('f_am')),
+    s_rules:!!v('f_pol'),
+    s_rooms:rooms.some(r=>r.name&&parseFloat(r.price)>0),
+    s_cal:null,s_food:null};
+  SEC.forEach(k=>{
+    const sec=$(k),b=sec&&sec.querySelector('.sb'),nav=document.querySelector(`.hnav [data-s=${k}]`);if(!b)return;
+    let c,t;
+    if(st[k]===null){c='opt';const n=[...closed].filter(x=>x>=tk).length;t=k==='s_cal'?(n?n+' closed':'Open every day'):(($('f_food').checked||$('f_fd').checked)?'Switched on':'Optional')}
+    else{c=st[k]?'ok':'todo';t=st[k]?'Complete':'Needs info'}
+    b.className='sb '+c;b.textContent=t;
+    if(nav){nav.classList.remove('ok','todo');if(c!=='opt')nav.classList.add(c)}
+  });
+}
+
+/* better room cards */
+window.roomSum=i=>{
+  const r=rooms[i],e=$('rs_'+i);if(!e||!r)return;
+  const p=parseFloat(r.price)||0,t=parseInt(r.totalRooms)||0,g=parseInt(r.maxGuests)||0;
+  e.innerHTML=p>0?`<b>${rs(p)}</b> per night · ${t} room${t===1?'':'s'} · sleeps up to ${g*t} guests`:'Enter a price to see the summary.';
+};
+window.dupRoom=i=>{
+  const c={...rooms[i],id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:(rooms[i].name||'Room')+' (copy)'};
+  rooms.splice(i+1,0,c);drawRooms();markDirty();toast('Room copied. Change its name and price.');
+};
+window.drawRooms=function(){
+  setTimeout(updateHero,0);
+  const n=(i,k,v)=>`oninput="rooms[${i}].${k}=this.value;roomSum(${i})"`;
+  $('rooms').innerHTML=rooms.length?rooms.map((r,i)=>`<div class="room2">
+    <div class="rh"><span class="rn">${i+1}</span><input class="inp" placeholder="Room name, e.g. Deluxe AC" value="${esc(r.name)}" aria-label="Room name" ${n(i,'name')}/><button type="button" class="btn sm" onclick="dupRoom(${i})">Copy</button><button type="button" class="btn sm red" onclick="delRoom(${i})">Remove</button></div>
+    <div class="rb"><div class="rg">
+      <div><label class="l">Price per night (₹)</label><input class="inp" type="number" min="0" inputmode="numeric" value="${esc(r.price)}" ${n(i,'price')}/></div>
+      <div><label class="l">Max guests per room</label><input class="inp" type="number" min="1" inputmode="numeric" value="${esc(r.maxGuests)}" ${n(i,'maxGuests')}/></div>
+      <div><label class="l">Total rooms</label><input class="inp" type="number" min="1" inputmode="numeric" value="${esc(r.totalRooms)}" ${n(i,'totalRooms')}/></div></div>
+      <div class="row" style="margin-top:12px"><div><label class="l">Full-day price (₹, optional)</label><input class="inp" type="number" min="0" inputmode="numeric" value="${esc(r.fullDayPrice)}" ${n(i,'fullDayPrice')}/></div>
+      <div><label class="l">Short description</label><input class="inp" value="${esc(r.description)}" placeholder="e.g. King bed, balcony" ${n(i,'description')}/></div></div>
+      <div class="rsum" id="rs_${i}"></div></div></div>`).join('')
+    :`<div class="empty" style="padding:30px 10px"><div class="big">🛏️</div><b>No room types yet</b>Add your first room to start taking bookings.<div style="margin-top:14px"><button type="button" class="btn pri" onclick="addRoom()">${ic('plus')}Add room</button></div></div>`;
+  rooms.forEach((_,i)=>roomSum(i));
+};
+
+/* wrap existing functions so the new bits stay in sync */
+const _rf=renderForm;window.renderForm=function(){_rf();enhance();chips();status()};
+const _up=updatePrev;window.updatePrev=function(){_up();chips()};
+const _uh=updateHero;window.updateHero=function(){_uh();status()};
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+  KeepJourney · Login type chooser
+  PASTE THIS WHOLE BLOCK right before </body> (after the My hotel upgrade block).
+  Before sign in, people see two choices: Hotel login and Rental service (coming soon).
+  Your sign in code, Firebase and security guard are not changed.
+═══════════════════════════════════════════════════════════════ -->
+<style id="kj-choose">
+.pick{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--card2);border-radius:18px;padding:15px 16px;margin-bottom:12px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.pick:hover:not(.soon){border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--sh2)}
+.pick .pi{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;flex:none}
+.pick .pi .ico{width:22px;height:22px}
+.pick b{display:block;font-size:15px;letter-spacing:-.02em}
+.pick small{display:block;color:var(--soft);font-weight:600;font-size:12.5px;margin-top:2px}
+.pick .go{margin-left:auto;color:var(--soft)}
+.pick.soon{cursor:not-allowed;opacity:.85}
+.pick.soon .pi{background:var(--card);color:var(--soft);border:1px solid var(--line)}
+.soonb{display:inline-flex;align-items:center;background:var(--amber-l);color:var(--amber);border-radius:30px;padding:2px 10px;font-size:11px;font-weight:800;margin-left:8px;vertical-align:1px}
+.lback{margin:-6px 0 14px -6px}
+</style>
+
+<script>
+(()=>{
+const box=$('lform');if(!box)return;
+I.key='<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>';
+
+/* chooser card, shown before the sign in form */
+const ch=document.createElement('div');
+ch.className='l-box';ch.id='lchoose';
+ch.innerHTML=`<h2>Welcome to KeepJourney</h2>
+  <p class="hint" style="margin:0 0 20px">Choose how you want to sign in.</p>
+  <button type="button" class="pick" id="pkHotel"><span class="pi c-green">${ic('home')}</span><span><b>Hotel login</b><small>Manage bookings, rooms and prices</small></span><span class="go">${ic('chevR')}</span></button>
+  <button type="button" class="pick soon" id="pkRental" aria-disabled="true"><span class="pi">${ic('key')}</span><span><b>Rental service login<span class="soonb">Coming soon</span></b><small>We are building this. Stay tuned.</small></span></button>
+  <div class="sec-note">🔒 Secure partner access</div>`;
+box.parentNode.insertBefore(ch,box);
+box.classList.add('hide');
+
+/* back link inside the hotel form */
+box.insertAdjacentHTML('afterbegin',`<button type="button" class="btn sm ghost lback" id="lBack">${ic('chevL')}Change login type</button>`);
+
+function showHotel(){
+  ch.classList.add('hide');box.classList.remove('hide');
+  setTimeout(()=>{const e=$('lid');e&&e.focus()},60);
+}
+function showChooser(){
+  box.classList.add('hide');ch.classList.remove('hide');
+  $('lerr').classList.add('hide');
+}
+$('pkHotel').addEventListener('click',showHotel);
+$('lBack').addEventListener('click',showChooser);
+$('pkRental').addEventListener('click',()=>toast('Rental service login is coming soon.'));
+})();
 </script>
 </body>
 </html>
