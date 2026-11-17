@@ -2097,6 +2097,11 @@ function rvOpen(id){
     <div class="hint" style="margin:-8px 0 14px">Leave both blank and guests will ask you for a quote.</div>
     <div class="row"><div class="fg"><label class="l" for="rv_dep">Refundable deposit (₹)</label><input class="inp" id="rv_dep" type="number" min="0" inputmode="numeric" value="${v('deposit')}"/></div>
     <div class="fg"><label class="l" for="rv_stock">How many do you have?</label><input class="inp" id="rv_stock" type="number" min="0" inputmode="numeric" value="${x&&typeof x.stock==='number'?x.stock:''}"/><div class="hint">Blank = not counted. 0 = sold out.</div></div></div>
+        <div class="row"><div class="fg"><label class="l" for="rv_avf">Available from date (optional)</label><input class="inp" id="rv_avf" type="date" value="${esc(x?x.availableFrom:'')}"/></div>
+    <div class="fg"><label class="l" for="rv_avt">Available to date (optional)</label><input class="inp" id="rv_avt" type="date" value="${esc(x?x.availableTo:'')}"/></div></div>
+    <div class="row"><div class="fg"><label class="l" for="rv_tmf">Daily from time (optional)</label><input class="inp" id="rv_tmf" type="time" value="${esc(x?x.timeFrom:'')}"/></div>
+    <div class="fg"><label class="l" for="rv_tmt">Daily to time (optional)</label><input class="inp" id="rv_tmt" type="time" value="${esc(x?x.timeTo:'')}"/></div></div>
+    <div class="hint" style="margin:-8px 0 14px">Leave all blank and your vehicle is available every day.</div>
     <div class="fg"><label class="l" for="rv_tags">Highlights (comma separated)</label><input class="inp" id="rv_tags" placeholder="350cc, Helmet included" value="${esc((x&&x.tags||[]).join(', '))}"/></div>
     <div class="fg"><label class="l" for="rv_pick">Pickup spots (comma separated)</label><input class="inp" id="rv_pick" placeholder="Railway Station, Bus Stand" value="${esc((x&&x.pickupLocations||[]).join(', '))}"/></div>
     <div class="fg"><label class="l" for="rv_lk">Photos <span style="color:var(--soft);font-weight:600">(first photo is the cover)</span></label>
@@ -2119,10 +2124,13 @@ async function rvSave(id){
   const name=g('rv_name');if(!name)return fail('Enter the vehicle name.');
   const stockRaw=g('rv_stock');let stock;
   if(stockRaw!==''){stock=parseInt(stockRaw);if(isNaN(stock)||stock<0)return fail('Stock must be 0 or more.')}
-  const list=i=>g(i).split(',').map(s=>s.trim()).filter(Boolean);
+    const list=i=>g(i).split(',').map(s=>s.trim()).filter(Boolean);
+  if(g('rv_avf')&&g('rv_avt')&&g('rv_avf')>g('rv_avt'))return fail('Available-from date must be before available-to date.');
+  if((g('rv_tmf')||g('rv_tmt'))&&(!g('rv_tmf')||!g('rv_tmt')||g('rv_tmf')>=g('rv_tmt')))return fail('Set both daily times, with "from" earlier than "to".');
   const ts=FV.serverTimestamp();
   const data={name,category:$('rv_cat').value||'other',description:g('rv_desc'),address:g('rv_addr'),
     pricePerHour:n('rv_ph'),pricePerDay:n('rv_pd'),deposit:n('rv_dep'),tags:list('rv_tags'),pickupLocations:list('rv_pick'),
+        availableFrom:$('rv_avf').value||'',availableTo:$('rv_avt').value||'',timeFrom:$('rv_tmf').value||'',timeTo:$('rv_tmt').value||'',
     imageUrl:pv[0]||'',images:pv.slice(1,MAX_PHOTOS),available:$('rv_av').checked,
     ownerId:owner.id,ownerName:owner.name||owner.id,updatedAt:ts,updatedBy:'rental-owner:'+owner.id};
   const btn=$('rv_save');btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving';
@@ -2152,6 +2160,141 @@ async function rvDelete(id){
 }
 
 Object.assign(window,{rtab,rLogout,rIcons,renderVeh,renderBk,rbDetail,rSt,rQuote,rvOpen,rvSave,rvToggle,rvDelete,rvLink,rvUpload,rvDel,rvCover});
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+  KeepJourney · SECURITY + PRIVACY LAYER v2
+  PASTE THIS WHOLE BLOCK right before </body>, after the Rental block.
+  Adds: traceable watermark, screenshot/recording deterrents, DevTools cover,
+  masked phone numbers, Privacy mode button, login lockout, idle warning.
+═══════════════════════════════════════════════════════════════ -->
+<style id="kj-sec2">
+#kjShield{position:fixed;inset:0;z-index:310;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;background:var(--bg);color:var(--ink);font-weight:800;font-size:16px}
+#kjShield.on{display:flex}
+#kjShield small{color:var(--soft);font-weight:600;font-size:13px}
+#kjWm{position:fixed;inset:0;z-index:250;pointer-events:none;display:none;background-repeat:repeat}
+body.authed #kjWm{display:block}
+.kjpriv.on{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 55%,transparent)}
+body.priv .amt,body.priv .st b,body.priv .hs b,body.priv .sum div:not(:first-child) span:last-child{filter:blur(7px);transition:filter .2s}
+a[data-m="1"]{cursor:pointer;border-bottom:1px dashed currentColor}
+@media print{#kjWm,#kjShield{display:none!important}}
+</style>
+
+<script>
+(()=>{
+'use strict';
+/* ── settings ── */
+const CFG={watermark:true,devtoolsCover:true,maskPhones:true,maxFails:5,lockMin:5,idleWarnMin:18};
+
+const q=s=>document.querySelector(s);
+const loggedIn=()=>{const a=q('#app'),r=q('#rapp');return !!((a&&!a.classList.contains('hide'))||(r&&!r.classList.contains('hide')))};
+const who=()=>{const w=q('#app:not(.hide) #who')||q('#rapp:not(.hide) #rwho');return w?w.textContent.trim():''};
+const isField=e=>e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+const xesc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ── 1. extra cover screen (separate from the original #shield) ── */
+const shield=document.createElement('div');shield.id='kjShield';shield.setAttribute('aria-hidden','true');
+shield.innerHTML='<div style="font-size:42px">🔒</div>Hidden for security<small>Close developer tools or return to this window to continue.</small>';
+document.body.appendChild(shield);
+let flashUntil=0;
+const flash=ms=>{flashUntil=Date.now()+ms;shield.classList.add('on');setTimeout(check,ms+30)};
+
+/* ── 2. traceable watermark: name + date/time tiled over the screen ──
+   A screenshot or phone photo now shows who it came from. */
+const wm=document.createElement('div');wm.id='kjWm';document.body.appendChild(wm);
+let wmKey='';
+function drawWm(){
+  if(!CFG.watermark)return;
+  const t=who(),d=new Date();
+  const stamp=d.toLocaleDateString('en-IN')+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const key=t+'|'+stamp;if(key===wmKey)return;wmKey=key;
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='340' height='210'><text x='24' y='115' transform='rotate(-24 170 105)' font-family='sans-serif' font-size='13' font-weight='700' fill='#808080' fill-opacity='0.17'>${xesc(t)} · ${xesc(stamp)}</text></svg>`;
+  wm.style.backgroundImage=`url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/* ── 3. DevTools cover (desktop only; docked panels trigger it) ── */
+function check(){
+  if(Date.now()<flashUntil){shield.classList.add('on');return}
+  let open=false;
+  if(CFG.devtoolsCover&&loggedIn()&&!matchMedia('(pointer:coarse)').matches){
+    open=(outerWidth-innerWidth>200)||(outerHeight-innerHeight>260);
+  }
+  shield.classList.toggle('on',open);
+}
+
+/* ── 4. keys: Win+Shift+S, Cmd+Shift+3/4/5, PrintScreen, copy and cut outside fields ── */
+document.addEventListener('keydown',e=>{
+  const k=(e.key||'').toLowerCase();
+  if((e.metaKey&&e.shiftKey&&k==='s')||(e.metaKey&&e.shiftKey&&['Digit3','Digit4','Digit5'].includes(e.code))||k==='printscreen'){
+    flash(3000);try{navigator.clipboard.writeText(' ')}catch{}
+  }
+  if((e.ctrlKey||e.metaKey)&&['c','x','a'].includes(k)&&!isField(e))e.preventDefault();
+},true);
+['copy','cut'].forEach(ev=>document.addEventListener(ev,e=>{if(!isField(e))e.preventDefault()},true));
+addEventListener('pagehide',()=>flash(1500));
+
+/* ── 5. mask phone numbers; tap once to reveal for 10 seconds ── */
+function maskPhones(){
+  if(!CFG.maskPhones)return;
+  document.querySelectorAll('a[href^="tel:"]:not([data-m])').forEach(a=>{
+    const full=a.textContent.trim();
+    if(full.replace(/\D/g,'').length<6){a.dataset.m='0';return}
+    a.dataset.full=full;a.dataset.mask=full.slice(0,3)+'•'.repeat(Math.max(1,full.length-5))+full.slice(-2);
+    a.textContent=a.dataset.mask;a.dataset.m='1';a.title='Tap to reveal';
+  });
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest&&e.target.closest('a[data-m="1"]');if(!a)return;
+  e.preventDefault();a.textContent=a.dataset.full;a.dataset.m='2';a.title='Tap again to call';
+  setTimeout(()=>{if(a.isConnected&&a.dataset.m==='2'){a.textContent=a.dataset.mask;a.dataset.m='1';a.title='Tap to reveal'}},10000);
+},true);
+let raf=0;
+new MutationObserver(()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(maskPhones)}).observe(document.body,{childList:true,subtree:true});
+
+/* ── 6. Privacy mode button: blurs money values (useful at a busy front desk) ── */
+function setPriv(on){
+  document.body.classList.toggle('priv',on);
+  document.querySelectorAll('.kjpriv').forEach(b=>{b.classList.toggle('on',on);b.innerHTML=ic(on?'eyeoff':'eye');b.setAttribute('aria-pressed',on);b.title=on?'Privacy mode on':'Privacy mode off'});
+}
+document.querySelectorAll('header').forEach(h=>{
+  const w=h.querySelector('.who');if(!w||h.querySelector('.kjpriv'))return;
+  const b=document.createElement('button');b.type='button';b.className='btn iconbtn kjpriv';b.setAttribute('aria-label','Privacy mode');
+  b.onclick=()=>setPriv(!document.body.classList.contains('priv'));
+  w.before(b);
+});
+setPriv(false);
+
+/* ── 7. login lockout after repeated wrong passwords (this device) ── */
+const origLogin=window.doLogin;
+window.doLogin=async function(e){
+  e&&e.preventDefault&&e.preventDefault();
+  let st={};try{st=JSON.parse(localStorage.getItem('kjLock')||'{}')}catch{}
+  const er=document.getElementById('lerr');
+  if(st.until&&st.until>Date.now()){
+    er.textContent=`Too many attempts. Try again in ${Math.ceil((st.until-Date.now())/6e4)} minute(s).`;er.classList.remove('hide');return;
+  }
+  await origLogin(e);
+  const failed=!er.classList.contains('hide');
+  if(!failed){try{localStorage.removeItem('kjLock')}catch{}return}
+  st.n=(st.n||0)+1;
+  if(st.n>=CFG.maxFails){st={until:Date.now()+CFG.lockMin*6e4,n:0};
+    er.textContent=`Too many attempts. Locked for ${CFG.lockMin} minutes.`}
+  try{localStorage.setItem('kjLock',JSON.stringify(st))}catch{}
+};
+
+/* ── 8. idle warning two minutes before the existing auto sign-out ── */
+let last=Date.now(),warned=false;
+['pointerdown','keydown','scroll','touchstart'].forEach(ev=>addEventListener(ev,()=>{last=Date.now();warned=false},{passive:true,capture:true}));
+setInterval(()=>{
+  if(!loggedIn()||warned)return;
+  if(Date.now()-last>CFG.idleWarnMin*6e4){warned=true;toast('You will be signed out in 2 minutes because of inactivity.')}
+},15000);
+
+/* ── 9. keep everything in sync ── */
+setInterval(()=>{document.body.classList.toggle('authed',loggedIn());drawWm();check()},1000);
+addEventListener('resize',check);
+try{console.log('%cStop!','color:#DC3545;font-size:34px;font-weight:800');console.log('%cThis is a browser feature for developers. Never paste anything here that someone sent you.','font-size:14px')}catch{}
 })();
 </script>
 </body>
