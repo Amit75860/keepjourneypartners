@@ -1741,5 +1741,418 @@ $('lBack').addEventListener('click',showChooser);
 $('pkRental').addEventListener('click',()=>toast('Rental service login is coming soon.'));
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+  KeepJourney · RENTAL PARTNER (vehicle owners)
+  PASTE THIS WHOLE BLOCK right before </body> of the PARTNER portal
+  (after the "Login type chooser" block). Nothing else changes.
+  Uses collections: rental_owners (logins), rental_items (vehicles, ownerId),
+  rental_bookings (read via itemId), rental_categories.
+═══════════════════════════════════════════════════════════════ -->
+<style id="kj-rental">
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:14px}
+.rv{margin:0;overflow:hidden;display:flex;flex-direction:column;transition:transform .25s var(--ease),box-shadow .25s}
+.rv:hover{transform:translateY(-3px);box-shadow:var(--sh2)}
+.rv.off{opacity:.8}
+.rv .im{position:relative;height:160px;display:grid;place-items:center;font-size:46px;background:linear-gradient(135deg,var(--brand-l),var(--sky-l))}
+.rv .im img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.rv .im .tag{position:absolute;top:10px;left:10px}
+.rv .im .cat{position:absolute;right:10px;bottom:10px;background:rgba(8,22,32,.72);color:#fff;border-radius:30px;padding:3px 11px;font-size:11px;font-weight:750;backdrop-filter:blur(4px)}
+.rv .bd{padding:14px 16px;flex:1}
+.rv .nm{font-weight:800;font-size:15.5px;letter-spacing:-.02em}
+.rv .ad{color:var(--soft);font-size:12px;margin-top:3px}
+.rv .pr{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.rv .pr span{background:var(--brand-l);color:var(--brand);border-radius:30px;padding:4px 12px;font-size:12px;font-weight:750}
+.rv .pr span.m{background:var(--card2);color:var(--mid);border:1px solid var(--line)}
+.rv .ac{display:flex;gap:7px;padding:0 16px 16px;flex-wrap:wrap}
+.rv .ac .btn{flex:1 1 auto}
+.rbk .bk{grid-template-columns:1.1fr 1.3fr 1fr auto}
+</style>
+
+<script>
+(()=>{
+/* ---------- icons ---------- */
+Object.assign(I,{
+ car:'<path d="M5 17h14M3 13l2-6h14l2 6v4h-3M3 13v4h3"/><circle cx="8.5" cy="17" r="1.8"/><circle cx="15.5" cy="17" r="1.8"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/>',
+ trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'
+});
+const E={bike:'🏍️',bicycle:'🚲',car:'🚗',bus:'🚌',taxi:'🚕',scooter:'🛵',boat:'🚤',kayak:'🛶',camera:'📷',tent:'⛺',bag:'🎒',luggage:'🧳',pool:'🏊',guide:'🧭',key:'🔑',other:'🔑'};
+const emo=c=>E[c]||'🔑';
+const FALLBACK=[['bike','Bikes'],['scooter','Scooters'],['car','Cars'],['bicycle','Cycles'],['other','Other']];
+const RS={0:['Requested','t0','s0'],1:['Confirmed','t1','s1'],2:['Completed','t4','s4'],3:['Rejected','t2','s2'],4:['Cancelled','t3','s3']};
+
+let mode='hotel',owner=null,items=[],bks=[],cats=[],bmap={},unsubI=null,unsubB=[],itemKey='',loadedI=false,loadedB=false,filtC='',filtS='',pv=[],pvBusy=false;
+const catName=k=>{const c=cats.find(x=>x[0]===k);return c?c[1]:(k||'Other')};
+
+/* ---------- build the rental app shell ---------- */
+document.body.insertAdjacentHTML('beforeend',`
+<div id="rapp" class="hide">
+  <header>
+    <div class="brand"><span class="lg">🚗</span><div><div>KeepJourney <em>Rental Partner</em></div><div class="tagline">Plan, Book, Travel.</div></div></div>
+    <div class="sp"></div>
+    <button class="btn iconbtn" id="rthemeBtn" onclick="toggleTheme();rIcons()" aria-label="Toggle dark mode"></button>
+    <div class="who"><div class="av" id="ravi">R</div><span id="rwho"></span></div>
+    <button class="btn sm" onclick="rLogout()">Sign out</button>
+  </header>
+  <nav id="rtabs" role="tablist">
+    <button class="on" data-t="veh" onclick="rtab('veh')">${ic('car')}My vehicles</button>
+    <button data-t="bk" onclick="rtab('bk')">${ic('inbox')}Bookings<span id="rbadge" class="bdg hide">0</span></button>
+  </nav>
+  <main>
+    <section id="r-veh">
+      <div class="hero"><div class="hl"><div class="hd" id="rhdate"></div><h2 id="rgreet">Welcome</h2><p>Add your vehicles and manage rental requests.</p></div><div class="hr"><span class="live"><i></i>Live</span><div class="hq" id="rhq"></div></div></div>
+      <div class="stats" id="rstats"></div>
+      <div class="bar"><div class="sbox">${ic('search')}<input class="inp" id="rq" placeholder="Search your vehicles" oninput="renderVeh()" aria-label="Search vehicles"/></div>
+        <button class="btn pri xl" onclick="rvOpen()">${ic('plus')}<span>Add vehicle</span></button></div>
+      <div class="chips" id="rchips"></div>
+      <div class="rgrid" id="rgrid"></div>
+    </section>
+    <section id="r-bk" class="hide rbk">
+      <div class="bar"><div class="sbox">${ic('search')}<input class="inp" id="rbq" placeholder="Search customer, phone or vehicle" oninput="renderBk()" aria-label="Search bookings"/></div></div>
+      <div class="chips" id="rbchips"></div>
+      <div id="rblist"></div>
+    </section>
+    <footer class="foot"><b>KeepJourney</b> Rental Partner · Plan, Book, Travel.<br>Need help? Contact your KeepJourney account manager.</footer>
+  </main>
+</div>`);
+const rIcons=()=>{const b=$('rthemeBtn');if(b)b.innerHTML=ic(document.documentElement.dataset.theme==='dark'?'sun':'moon')};
+rIcons();
+
+/* ---------- login chooser: enable the Rental card ---------- */
+const lf=$('lform'),h2=lf.querySelector('h2'),idLbl=lf.querySelector('label[for=lid]');
+function setMode(m){mode=m;h2.textContent=m==='rental'?'Rental partner sign in':'Hotel partner sign in';idLbl.textContent=m==='rental'?'Rental partner ID':'Owner ID';$('lerr').classList.add('hide')}
+const old=$('pkRental');
+if(old){
+  const nb=old.cloneNode(true);
+  nb.classList.remove('soon');nb.removeAttribute('aria-disabled');
+  const sb=nb.querySelector('.soonb');if(sb)sb.remove();
+  nb.querySelector('b').textContent='Rental partner login';
+  nb.querySelector('small').textContent='Add vehicles and manage rental requests';
+  nb.querySelector('.pi').className='pi c-sky';
+  nb.insertAdjacentHTML('beforeend','<span class="go">'+ic('chevR')+'</span>');
+  old.replaceWith(nb);
+  nb.addEventListener('click',()=>{setMode('rental');$('lchoose').classList.add('hide');lf.classList.remove('hide');setTimeout(()=>$('lid').focus(),60)});
+}
+$('pkHotel')&&$('pkHotel').addEventListener('click',()=>setMode('hotel'));
+$('lBack')&&$('lBack').addEventListener('click',()=>setMode('hotel'));
+
+const hotelLogin=window.doLogin;
+window.doLogin=async function(e){
+  if(mode!=='rental')return hotelLogin(e);
+  e&&e.preventDefault();
+  const id=$('lid').value.trim(),pw=$('lpw').value,er=$('lerr'),btn=$('lbtn');er.classList.add('hide');
+  const fail=m=>{er.textContent=m;er.classList.remove('hide')};
+  if(!id||!pw)return fail('Enter your partner ID and password.');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Signing in';
+  try{
+    const d=await db.collection('rental_owners').doc(id).get();
+    if(!d.exists||d.data().password!==pw)return fail('Partner ID or password is incorrect.');
+    if(d.data().isBlocked)return fail('This account is blocked. Contact KeepJourney.');
+    owner={id,...d.data()};
+    sessionStorage.removeItem('hoCred');
+    sessionStorage.setItem('roCred',JSON.stringify({id,pw}));
+    await start();
+  }catch(x){fail('Could not sign in: '+x.message)}
+  finally{btn.disabled=false;btn.textContent='Sign in'}
+};
+/* restore session */
+(async()=>{try{
+  if(sessionStorage.getItem('hoCred'))return;
+  const c=JSON.parse(sessionStorage.getItem('roCred')||'null');if(!c)return;
+  const d=await db.collection('rental_owners').doc(c.id).get();
+  if(d.exists&&d.data().password===c.pw&&!d.data().isBlocked){owner={id:c.id,...d.data()};mode='rental';await start()}
+}catch{}})();
+/* idle sign-out */
+let last=Date.now();
+['pointerdown','keydown','scroll','touchstart'].forEach(ev=>addEventListener(ev,()=>{last=Date.now()},{passive:true,capture:true}));
+setInterval(()=>{if(!sessionStorage.getItem('roCred')||pvBusy)return;if(Date.now()-last>20*6e4){sessionStorage.removeItem('roCred');location.reload()}},30000);
+
+function rLogout(){
+  unsubI&&unsubI();unsubB.forEach(f=>f());
+  sessionStorage.removeItem('roCred');location.reload();
+}
+
+/* ---------- start ---------- */
+async function start(){
+  $('login').classList.add('hide');$('rapp').classList.remove('hide');
+  const nm=owner.name||owner.id;$('rwho').textContent=nm;$('ravi').textContent=nm.trim()[0].toUpperCase();
+  $('rhdate').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+  const h=new Date().getHours();$('rgreet').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', '+nm;
+  loadedI=false;loadedB=false;renderAll();
+  try{
+    const s=await db.collection('rental_categories').get();
+    cats=s.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.active!==false).sort((a,b)=>(a.order||0)-(b.order||0)).map(c=>[c.id,c.name||c.id]);
+  }catch{}
+  if(!cats.length)cats=FALLBACK;
+  unsubI=db.collection('rental_items').where('ownerId','==',owner.id).onSnapshot(s=>{
+    items=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    loadedI=true;
+    const key=items.map(i=>i.id).sort().join();
+    if(key!==itemKey){itemKey=key;watchBookings()}
+    renderAll();
+  },e=>{loadedI=true;toast('Could not load vehicles: '+e.message,true);renderAll()});
+}
+function watchBookings(){
+  unsubB.forEach(f=>f());unsubB=[];bmap={};loadedB=false;
+  const ids=items.map(i=>i.id);
+  if(!ids.length){bks=[];loadedB=true;renderAll();return}
+  const chunks=[];for(let i=0;i<ids.length;i+=10)chunks.push(ids.slice(i,i+10));
+  const first=chunks.map(()=>true);
+  chunks.forEach((c,ci)=>{
+    unsubB.push(db.collection('rental_bookings').where('itemId','in',c).onSnapshot(s=>{
+      if(!first[ci]&&!s.metadata.hasPendingWrites)s.docChanges().forEach(ch=>{if(ch.type==='added'&&Number(ch.doc.data().status)===0)newReq(ch.doc.data())});
+      first[ci]=false;
+      bmap[ci]=s.docs.map(d=>({id:d.id,...d.data()}));
+      bks=[].concat(...Object.values(bmap)).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+      loadedB=true;renderAll();
+    },e=>{loadedB=true;toast('Could not load bookings: '+e.message,true);renderAll()}));
+  });
+}
+function newReq(b){
+  toast('New rental request from '+(b.userName||'a customer'));
+  try{if(alerts.sound)beep()}catch{}
+}
+function rtab(t){
+  document.querySelectorAll('#rtabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  $('r-veh').classList.toggle('hide',t!=='veh');$('r-bk').classList.toggle('hide',t!=='bk');
+  scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- rendering ---------- */
+function renderAll(){renderStats();renderVeh();renderBk()}
+function renderStats(){
+  const live=items.filter(i=>i.available!==false).length;
+  const pend=bks.filter(b=>Number(b.status)===0).length,conf=bks.filter(b=>Number(b.status)===1).length;
+  const card=(ico,cls,v,l,ex='')=>`<div class="st ${ex}"><div class="ib ${cls}">${ic(ico)}</div><b>${v}</b><small>${l}</small></div>`;
+  $('rstats').innerHTML=card('inbox','c-amber',pend,'Waiting for you',pend?'alert':'')+card('check','c-green',conf,'Confirmed bookings')+card('car','c-sky',items.length,'Your vehicles')+card('eye','c-green',live,'Visible in the app');
+  $('rhq').innerHTML=pend?`<b>${pend}</b>request${pend>1?'s':''} waiting for you`:'<b>✓</b>All caught up';
+  document.title=(pend?`(${pend}) `:'')+'KeepJourney Rental Partner';
+  const pb=$('rbadge');pb.textContent=pend;pb.classList.toggle('hide',!pend);
+}
+const skel=()=>[1,2,3].map(()=>'<div class="card" style="padding:18px"><div class="skel" style="height:18px;width:40%;margin-bottom:12px"></div><div class="skel" style="height:12px;width:70%;margin-bottom:8px"></div><div class="skel" style="height:12px;width:55%"></div></div>').join('');
+function renderVeh(){
+  const G=$('rgrid');if(!G)return;
+  if(!loadedI){G.innerHTML=skel();return}
+  const ks=[...new Set(items.map(i=>i.category||'other'))];
+  if(filtC&&!ks.includes(filtC))filtC='';
+  $('rchips').innerHTML=items.length>1?[['','All']].concat(ks.map(k=>[k,catName(k)])).map(([k,l])=>`<button class="chip ${filtC===k?'on':''}" data-c="${esc(k)}">${esc(l)}<small>${k===''?items.length:items.filter(i=>(i.category||'other')===k).length}</small></button>`).join(''):'';
+  const q=($('rq').value||'').toLowerCase();
+  const f=items.filter(x=>(!q||`${x.name||''} ${x.category||''} ${x.address||''}`.toLowerCase().includes(q))&&(!filtC||(x.category||'other')===filtC));
+  if(!f.length){
+    G.innerHTML=`<div class="card empty" style="grid-column:1/-1"><div class="big">${items.length?'🔍':'🚗'}</div><b>${items.length?'No matching vehicles':'No vehicles yet'}</b>${items.length?'Try a different search.':'Add your first vehicle to start getting rental requests.'}${items.length?'':`<div style="margin-top:14px"><button class="btn pri" onclick="rvOpen()">${ic('plus')}Add vehicle</button></div>`}</div>`;
+    return;
+  }
+  G.innerHTML=f.map(x=>{
+    const ph=Number(x.pricePerHour)||0,pd=Number(x.pricePerDay)||0,av=x.available!==false,sold=typeof x.stock==='number'&&x.stock<=0;
+    const pr=[];if(ph)pr.push(`<span>${rs(ph)} / hour</span>`);if(pd)pr.push(`<span>${rs(pd)} / day</span>`);if(!ph&&!pd)pr.push('<span class="m">Price on request</span>');
+    if(x.deposit>0)pr.push(`<span class="m">Deposit ${rs(x.deposit)}</span>`);
+    if(typeof x.stock==='number'&&!sold)pr.push(`<span class="m">${x.stock} available</span>`);
+    return`<article class="card rv ${av?'':'off'}">
+      <div class="im">${okUrl(x.imageUrl)?`<img src="${esc(x.imageUrl)}" alt="" loading="lazy" onerror="this.remove()"/>`:emo(x.category)}
+        <span class="tag ${sold?'t2':av?'t1':'t3'}">${sold?'Sold out':av?'Live in app':'Hidden'}</span><span class="cat">${esc(catName(x.category||'other'))}</span></div>
+      <div class="bd"><div class="nm">${esc(x.name||'Vehicle')}</div><div class="ad">${esc(x.address||'No address added')}</div><div class="pr">${pr.join('')}</div></div>
+      <div class="ac"><button class="btn sm" onclick="rvOpen('${x.id}')">${ic('edit')}Edit</button><button class="btn sm" onclick="rvToggle('${x.id}')">${av?'Hide':'Show'}</button><button class="btn sm red" onclick="rvDelete('${x.id}')">${ic('trash')}Delete</button></div>
+    </article>`}).join('');
+}
+function renderBk(){
+  const L=$('rblist');if(!L)return;
+  if(!loadedI||(items.length&&!loadedB)){L.innerHTML=skel();return}
+  const cnt=k=>k===''?bks.length:bks.filter(b=>String(Number(b.status)||0)===k).length;
+  $('rbchips').innerHTML=[['','All'],['0','Requested'],['1','Confirmed'],['2','Completed'],['3','Rejected'],['4','Cancelled']].map(([k,l])=>`<button class="chip ${filtS===k?'on':''}" data-s="${k}">${l}<small>${cnt(k)}</small></button>`).join('');
+  const q=($('rbq').value||'').toLowerCase();
+  const f=bks.filter(b=>(!q||[b.userName,b.userPhone,b.itemName,b.id].some(x=>String(x||'').toLowerCase().includes(q)))&&(filtS===''||String(Number(b.status)||0)===filtS));
+  if(!f.length){L.innerHTML=`<div class="card empty"><div class="big">${bks.length?'🔍':'🛎️'}</div><b>${bks.length?'No matching bookings':'No bookings yet'}</b>${bks.length?'Try a different search or filter.':'Rental requests for your vehicles appear here instantly.'}</div>`;return}
+  L.innerHTML=f.map(b=>{
+    const s=Number(b.status)||0,[lb,tc,sc]=RS[s]||RS[0],quote=b.isQuoteRequest===true,cur=b.currency||'₹';
+    const money=n=>cur+Number(n||0).toLocaleString('en-IN');
+    const unit=b.durationUnit==='hour'?'hour':'day';
+    const phone=esc(b.userPhone||'');
+    const a=[`<button class="btn sm" onclick="rbDetail('${b.id}')">${ic('eye')}Details</button>`];
+    if(s===0)a.push(`<button class="btn sm pri" onclick="rSt('${b.id}',1)">${ic('check')}Confirm</button>`,`<button class="btn sm red" onclick="rSt('${b.id}',3)">Reject</button>`);
+    if(s===1)a.push(`<button class="btn sm pri" onclick="rSt('${b.id}',2)">${ic('check')}Complete</button>`,`<button class="btn sm red" onclick="rSt('${b.id}',4)">Cancel</button>`);
+    if(quote&&s<=1)a.push(`<button class="btn sm" onclick="rQuote('${b.id}')">${ic('rupee')}${b.quotedAmount!=null?'Update':'Set'} quote</button>`);
+    const amt=quote?(b.quotedAmount!=null?money(b.quotedAmount):'Quote pending'):money(b.total);
+    return`<article class="card bk ${sc} ${s>=2?'done':''}">
+      <div class="gh"><div class="gav">${esc((b.userName||'G').trim()[0].toUpperCase())}</div><div><div class="n">${esc(b.userName||'Customer')}</div>
+        <div class="s">${phone?`<a href="tel:${phone}">${phone}</a><br>`:''}#${esc(String(b.id).slice(-8))}</div>${quote?'<span class="note">Quote request</span>':''}</div></div>
+      <div><div class="n" style="font-size:14px">${esc(b.itemName||'')}${b.quantity>1?' × '+b.quantity:''}</div><div class="s">${fdt(b.startDateTime)||'—'}<br>${quote?'Waiting for your quote':`${b.duration||'?'} ${unit}${b.duration>1?'s':''}`}<br>📍 ${esc(b.pickupPoint||'—')}</div></div>
+      <div><div class="amt">${amt}</div><div class="s" style="margin:4px 0 7px">${!quote&&b.deposit>0?'+ '+money(b.deposit)+' deposit at pickup':'Pay at pickup'}${(s===3||s===4)&&b.cancelReason?'<br>'+esc(b.cancelReason):''}</div><span class="tag ${tc}">${lb}</span></div>
+      <div class="acts">${a.join('')}</div></article>`}).join('');
+}
+$('rchips').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){filtC=b.dataset.c;renderVeh()}});
+$('rbchips').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(b){filtS=b.dataset.s;renderBk()}});
+
+/* ---------- booking actions ---------- */
+function rbDetail(id){
+  const b=bks.find(x=>x.id===id);if(!b)return;
+  const quote=b.isQuoteRequest===true,cur=b.currency||'₹',money=n=>cur+Number(n||0).toLocaleString('en-IN');
+  const extra=Array.isArray(b.extraInfo)?b.extraInfo:[];
+  const row=(l,v)=>`<div><span>${esc(l)}</span><span style="text-align:right;max-width:60%">${v}</span></div>`;
+  modal(`<h3>Rental booking</h3><p class="msg" style="margin-top:4px">#${esc(String(b.id).slice(-8))} · ${esc((RS[Number(b.status)||0]||RS[0])[0])}</p>
+    <div class="sum">${row('Customer',esc(b.userName||'—'))}${row('Phone',esc(b.userPhone||'—'))}${b.userEmail?row('Email',esc(b.userEmail)):''}
+    ${row('Vehicle',esc(b.itemName||'—')+(b.quantity>1?' × '+b.quantity:''))}${row('Start',esc(fdt(b.startDateTime)||'—'))}${quote?'':row('End',esc(fdt(b.endDateTime)||'—'))}
+    ${row('Pickup',esc(b.pickupPoint||'—'))}${b.notes?row(quote?'Request':'Notes',esc(b.notes)):''}
+    ${extra.map(x=>row(x.label||x.key||'Info',esc(x.value||'—'))).join('')}
+    ${row('Total',quote?(b.quotedAmount!=null?money(b.quotedAmount):'Quote pending'):money(b.total))}</div>
+    <div class="mact"><button class="btn pri" onclick="mclose(true)">Close</button></div>`);
+}
+async function rSt(id,st){
+  const b=bks.find(x=>x.id===id);if(!b)return;
+  let reason='';
+  if(st===3||st===4){
+    const r=await modal(`<h3>${st===3?'Reject this request?':'Cancel this booking?'}</h3><p class="msg" style="margin-top:6px">The customer will see this in their app.</p>
+      <div class="fg" style="margin-top:14px"><label class="l" for="rr">Reason (optional)</label><input class="inp" id="rr" maxlength="120" autofocus/></div>
+      <div class="mact"><button class="btn" onclick="mclose(null)">Keep as is</button><button class="btn solidred" onclick="mclose({r:$('rr').value.trim()})">${st===3?'Reject request':'Cancel booking'}</button></div>`);
+    if(!r)return;reason=r.r;
+  }else if(!(await ask(st===1?'Confirm this booking?':'Mark as completed?',st===1?'The customer will see their booking as confirmed.':'Confirm the vehicle is back and payment is collected.',st===1?'Confirm booking':'Mark completed')))return;
+  const ref=db.collection('rental_bookings').doc(id),ts=FV.serverTimestamp();
+  try{
+    await db.runTransaction(async tx=>{
+      const s=await tx.get(ref);if(!s.exists)throw new Error('This booking no longer exists.');
+      const d=s.data(),cur=Number(d.status)||0;
+      if(!items.some(i=>i.id===d.itemId))throw new Error('This booking is not for one of your vehicles.');
+      const ok={0:[1,3],1:[2,4]}[cur];
+      if(!ok||!ok.includes(st))throw new Error('This booking was already changed. Try again.');
+      const u={status:st,updatedAt:ts,handledBy:'rental-owner:'+owner.id};
+      if(reason)u.cancelReason=reason;
+      if(st===4){u.cancelledBy='partner';u.cancelledAt=ts}
+      tx.update(ref,u);
+    });
+    toast({1:'Booking confirmed',2:'Rental completed',3:'Request rejected',4:'Booking cancelled'}[st]);
+  }catch(e){toast(e.message,true)}
+}
+async function rQuote(id){
+  const b=bks.find(x=>x.id===id);if(!b)return;
+  const r=await modal(`<h3>Set your quote</h3><p class="msg" style="margin-top:4px">For ${esc(b.userName||'the customer')} · ${esc(b.itemName||'')}</p>
+    <div class="fg" style="margin-top:14px"><label class="l" for="qa">Quoted amount (₹)</label><input class="inp" id="qa" type="number" min="0" inputmode="numeric" value="${b.quotedAmount!=null?esc(b.quotedAmount):''}" autofocus/></div>
+    <p id="qe" class="err hide"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="const n=parseFloat($('qa').value);if(isNaN(n)||n<0){$('qe').textContent='Enter a valid amount.';$('qe').classList.remove('hide');return}mclose({n:n})">Save quote</button></div>`);
+  if(!r)return;
+  try{await db.collection('rental_bookings').doc(id).update({quotedAmount:r.n,quotedBy:'rental-owner:'+owner.id,updatedAt:FV.serverTimestamp()});toast('Quote saved')}
+  catch(e){toast(e.message,true)}
+}
+
+/* ---------- vehicles: add / edit ---------- */
+function pvRender(){
+  const t=$('rv_th');if(!t)return;
+  t.innerHTML=pv.length?pv.map((u,i)=>`<div class="th"><img src="${esc(u)}" alt="Photo ${i+1}" onerror="this.parentNode.classList.add('bad')"/>${i===0?'<b class="cv">Cover</b>':`<button type="button" class="mk" onclick="rvCover(${i})" aria-label="Make cover photo">★</button>`}<button type="button" class="rm" onclick="rvDel(${i})" aria-label="Remove photo">×</button></div>`).join(''):'<p class="hint" style="margin:6px 0 0">No photos yet. Good photos get more bookings.</p>';
+}
+function rvDel(i){pv.splice(i,1);pvRender()}
+function rvCover(i){const[x]=pv.splice(i,1);pv.unshift(x);pvRender()}
+function rvMsg(lines,kind){
+  const m=$('rv_msg');if(!m)return;
+  if(!lines||!lines.length){m.classList.add('hide');m.innerHTML='';return}
+  m.className='lkmsg '+kind;m.innerHTML=lines.map(l=>`<div>${esc(l)}</div>`).join('');
+}
+async function rvLink(){
+  const inp=$('rv_lk');if(!inp||pvBusy)return;
+  const raw=inp.value.trim();if(!raw)return;
+  pvBusy=true;const btn=$('rv_lkb');btn.disabled=true;btn.innerHTML='<span class="spin"></span>Checking';rvMsg(['Checking your photo link…'],'ok');
+  const errs=[];let ok=0;
+  for(const p of [...new Set(raw.split(/[\s,;]+/).filter(Boolean))]){
+    if(pv.length>=MAX_PHOTOS){errs.push(`Limit of ${MAX_PHOTOS} photos reached.`);break}
+    const r=fixLink(p);if(r.err){errs.push(r.err);continue}
+    if(pv.includes(r.url))continue;
+    if(await probe(r.url)){pv.push(r.url);ok++}else errs.push('This link did not open as a photo: '+shortTxt(p));
+    if(!$('rv_lk'))break;
+  }
+  pvBusy=false;
+  if(!$('rv_lk'))return;
+  btn.disabled=false;btn.innerHTML=ic('plus')+'Add';
+  pvRender();
+  if(!errs.length)inp.value='';
+  rvMsg(errs.length?(ok?[`✓ ${ok} photo${ok>1?'s':''} added.`]:[]).concat(errs):(ok?[`✓ ${ok} photo${ok>1?'s':''} added.`]:null),errs.length?'err':'ok');
+}
+async function rvUpload(files){
+  if(pvBusy)return;
+  files=[...(files||[])].filter(f=>/^image\//.test(f.type));
+  if(!files.length){toast('Choose image files (JPG or PNG).',true);return}
+  const room=MAX_PHOTOS-pv.length;if(room<=0){toast(`You already have ${MAX_PHOTOS} photos. Remove one first.`,true);return}
+  if(files.length>room){toast(`Only ${room} more photo${room>1?'s':''} can be added.`,true);files=files.slice(0,room)}
+  pvBusy=true;let ok=0;const z=$('rv_up');z&&z.classList.add('busy');
+  for(let i=0;i<files.length;i++){
+    const f=files[i];rvMsg([`Uploading photo ${i+1} of ${files.length}…`],'ok');
+    try{
+      if(f.size>MAX_MB*1048576)throw new Error(`${f.name||'Photo'} is bigger than ${MAX_MB} MB`);
+      pv.push(await upCloudinary(await shrink(f)));ok++;
+      if(!$('rv_th'))break;pvRender();
+    }catch(e){toast((f.name?f.name+': ':'')+e.message,true)}
+  }
+  pvBusy=false;z&&z.classList.remove('busy');
+  rvMsg(ok?[`✓ ${ok} photo${ok>1?'s':''} uploaded.`]:null,'ok');pvRender();
+}
+function rvOpen(id){
+  const x=id?items.find(i=>i.id===id):null;if(id&&!x)return;
+  pv=x?[x.imageUrl,...(Array.isArray(x.images)?x.images:[])].filter(okUrl):[];
+  const list=cats.slice();if(x&&x.category&&!list.some(c=>c[0]===x.category))list.push([x.category,x.category]);
+  const v=k=>x&&x[k]!=null&&x[k]!==0?esc(x[k]):'';
+  const up=uploadOn();
+  modal(`<h3>${x?'Edit vehicle':'Add a vehicle'}</h3><p class="msg" style="margin:4px 0 16px">Guests will see this in the KeepJourney app${x?'':' as soon as you save'}.</p>
+    <div class="row"><div class="fg"><label class="l" for="rv_name">Vehicle name</label><input class="inp" id="rv_name" maxlength="80" placeholder="e.g. Royal Enfield 350" value="${esc(x?x.name:'')}"/></div>
+    <div class="fg"><label class="l" for="rv_cat">Type</label><select class="inp" id="rv_cat">${list.map(([k,l])=>`<option value="${esc(k)}" ${x&&x.category===k?'selected':''}>${esc(l)}</option>`).join('')}</select></div></div>
+    <div class="fg"><label class="l" for="rv_desc">Description</label><textarea class="inp" id="rv_desc" rows="2" placeholder="Model, condition, what is included (helmet, fuel…)">${esc(x?x.description:'')}</textarea></div>
+    <div class="fg"><label class="l" for="rv_addr">Area / address</label><input class="inp" id="rv_addr" placeholder="e.g. Bus Stand Road, Purulia, West Bengal" value="${esc(x?x.address:'')}"/><div class="hint">Include town, district and state. Guests searching these words will find your vehicle.</div></div>
+    <div class="row"><div class="fg"><label class="l" for="rv_ph">Price per hour (₹)</label><input class="inp" id="rv_ph" type="number" min="0" inputmode="numeric" value="${v('pricePerHour')}"/></div>
+    <div class="fg"><label class="l" for="rv_pd">Price per day (₹)</label><input class="inp" id="rv_pd" type="number" min="0" inputmode="numeric" value="${v('pricePerDay')}"/></div></div>
+    <div class="hint" style="margin:-8px 0 14px">Leave both blank and guests will ask you for a quote.</div>
+    <div class="row"><div class="fg"><label class="l" for="rv_dep">Refundable deposit (₹)</label><input class="inp" id="rv_dep" type="number" min="0" inputmode="numeric" value="${v('deposit')}"/></div>
+    <div class="fg"><label class="l" for="rv_stock">How many do you have?</label><input class="inp" id="rv_stock" type="number" min="0" inputmode="numeric" value="${x&&typeof x.stock==='number'?x.stock:''}"/><div class="hint">Blank = not counted. 0 = sold out.</div></div></div>
+    <div class="fg"><label class="l" for="rv_tags">Highlights (comma separated)</label><input class="inp" id="rv_tags" placeholder="350cc, Helmet included" value="${esc((x&&x.tags||[]).join(', '))}"/></div>
+    <div class="fg"><label class="l" for="rv_pick">Pickup spots (comma separated)</label><input class="inp" id="rv_pick" placeholder="Railway Station, Bus Stand" value="${esc((x&&x.pickupLocations||[]).join(', '))}"/></div>
+    <div class="fg"><label class="l" for="rv_lk">Photos <span style="color:var(--soft);font-weight:600">(first photo is the cover)</span></label>
+      ${up?`<label class="up" id="rv_up" for="rv_file" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="event.preventDefault();this.classList.remove('drag');rvUpload(event.dataTransfer.files)">${ic('upload')}<span>Upload photos from your phone or computer</span><small>JPG or PNG, up to ${MAX_PHOTOS} photos. We resize them automatically.</small><input type="file" id="rv_file" accept="image/*" multiple onchange="rvUpload(this.files);this.value=''"/></label>`:''}
+      <div class="lkrow"><input class="inp" id="rv_lk" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${up?'Or paste':'Paste'} a photo link (https://…)" onpaste="setTimeout(rvLink,60)" onkeydown="if(event.key==='Enter'){event.preventDefault();rvLink()}"/><button type="button" class="btn pri" id="rv_lkb" onclick="rvLink()">${ic('plus')}Add</button></div>
+      <div class="lkmsg hide" id="rv_msg" role="status"></div>
+      ${up?'':'<div class="hint">Upload the photo to Cloudinary or ImgBB and paste its direct link here.</div>'}
+      <div class="thumbs" id="rv_th"></div></div>
+    ${tg('rv_av',x?x.available!==false:true,'Visible in the app','Turn off to hide this vehicle without deleting it.')}
+    <p id="rv_err" class="err hide" style="margin-top:12px"></p>
+    <div class="mact stick"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" id="rv_save" onclick="rvSave('${x?x.id:''}')">${x?'Save changes':'Add vehicle'}</button></div>`,'wide');
+  pvRender();
+}
+async function rvSave(id){
+  if(pvBusy){toast('Please wait, your photo is still being checked.',true);return}
+  const er=$('rv_err'),fail=m=>{er.textContent=m;er.classList.remove('hide');er.scrollIntoView({block:'nearest'})};
+  er.classList.add('hide');
+  if($('rv_lk').value.trim()){await rvLink();if($('rv_lk').value.trim())return fail('Fix or clear the photo link box, then save again.')}
+  const g=i=>$(i).value.trim(),n=i=>{const x=parseFloat($(i).value);return isNaN(x)||x<0?0:x};
+  const name=g('rv_name');if(!name)return fail('Enter the vehicle name.');
+  const stockRaw=g('rv_stock');let stock;
+  if(stockRaw!==''){stock=parseInt(stockRaw);if(isNaN(stock)||stock<0)return fail('Stock must be 0 or more.')}
+  const list=i=>g(i).split(',').map(s=>s.trim()).filter(Boolean);
+  const ts=FV.serverTimestamp();
+  const data={name,category:$('rv_cat').value||'other',description:g('rv_desc'),address:g('rv_addr'),
+    pricePerHour:n('rv_ph'),pricePerDay:n('rv_pd'),deposit:n('rv_dep'),tags:list('rv_tags'),pickupLocations:list('rv_pick'),
+    imageUrl:pv[0]||'',images:pv.slice(1,MAX_PHOTOS),available:$('rv_av').checked,
+    ownerId:owner.id,ownerName:owner.name||owner.id,updatedAt:ts,updatedBy:'rental-owner:'+owner.id};
+  const btn=$('rv_save');btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving';
+  try{
+    if(id){
+      if(!items.some(i=>i.id===id))throw new Error('This vehicle is not yours.');
+      data.stock=stockRaw===''?FV.delete():stock;
+      await db.collection('rental_items').doc(id).update(data);
+    }else{
+      if(stockRaw!=='')data.stock=stock;
+      await db.collection('rental_items').add({...data,minHours:1,maxHours:12,minDays:1,maxDays:30,maxQuantity:10,order:100,createdAt:ts});
+    }
+    mclose(true);toast(id?'Vehicle updated':'Vehicle added. It is live in the app.');
+  }catch(e){btn.disabled=false;btn.textContent=id?'Save changes':'Add vehicle';fail('Could not save: '+e.message)}
+}
+async function rvToggle(id){
+  const x=items.find(i=>i.id===id);if(!x)return;
+  try{await db.collection('rental_items').doc(id).update({available:x.available===false,updatedAt:FV.serverTimestamp()});toast(x.available===false?'Vehicle is visible again':'Vehicle hidden from the app')}
+  catch(e){toast(e.message,true)}
+}
+async function rvDelete(id){
+  const x=items.find(i=>i.id===id);if(!x)return;
+  if(bks.some(b=>b.itemId===id&&[0,1].includes(Number(b.status)))){toast('This vehicle has active bookings. Complete or cancel them first.',true);return}
+  if(!(await ask('Delete this vehicle?',`“${x.name||'Vehicle'}” will be removed from the app. Past bookings are kept.`,'Delete vehicle',true)))return;
+  try{await db.collection('rental_items').doc(id).delete();toast('Vehicle deleted')}
+  catch(e){toast(e.message,true)}
+}
+
+Object.assign(window,{rtab,rLogout,rIcons,renderVeh,renderBk,rbDetail,rSt,rQuote,rvOpen,rvSave,rvToggle,rvDelete,rvLink,rvUpload,rvDel,rvCover});
+})();
+</script>
 </body>
 </html>
