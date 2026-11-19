@@ -3205,7 +3205,7 @@ $('blist').addEventListener('click',e=>{
   if(b=g('data-pay'))ledger(b);else if(b=g('data-inv'))invoice(b);else if(b=g('data-nt'))noteEdit(b);else if(b=g('data-ro'))reopen(b);
 });
 
-/* ── date-wise prices (saved as hotel.priceRules) ── */
+/* ── date-wise prices (saved as hotel.priceRules) ── 
 function prDraw(){
   const c=$('kjPR');if(!c||!hotel)return;
   const rt=hotel.roomTypes||[],rules=hotel.priceRules||[],nmOf=id=>id==='all'?'All rooms':((rt.find(r=>r.id===id)||{}).name||'Room');
@@ -3222,6 +3222,7 @@ function prDraw(){
     <p id="pr_e" class="err hide" style="margin-top:12px"></p>
     <p class="hint">If two prices cover the same night, the one added last is used. The guest app must read <code>priceRules</code> to show these prices.</p></div>`;
 }
+    */
 async function prSave(rules){await db.collection('hotels').doc(hotel.id).update({priceRules:rules,updatedAt:FV.serverTimestamp(),updatedBy:'owner:'+owner.id});hotel.priceRules=rules;prDraw()}
 window.kjPrAdd=async()=>{
   const g=id=>$(id).value,from=g('pr_from'),to=g('pr_to'),v=parseFloat(g('pr_val'));
