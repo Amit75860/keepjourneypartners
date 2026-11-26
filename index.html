@@ -707,10 +707,10 @@ function modal(html,cls=''){
   return new Promise(res=>{
     const prev=document.activeElement;
     $('modal').innerHTML=`<div class="mo" id="mo"><div class="mbox ${cls}" role="dialog" aria-modal="true">${html}</div></div>`;
-    const close=v=>{$('modal').innerHTML='';document.removeEventListener('keydown',key);prev&&prev.focus&&prev.focus();res(v)};
-    const key=e=>{if(e.key==='Escape')close(null)};
+    const close=v=>{window._mlock=false;$('modal').innerHTML='';document.removeEventListener('keydown',key);prev&&prev.focus&&prev.focus();res(v)};
+    const key=e=>{if(e.key==='Escape'&&!window._mlock)close(null)};
     document.addEventListener('keydown',key);
-    $('mo').addEventListener('mousedown',e=>{if(e.target.id==='mo'&&e.clientX<e.target.clientWidth)close(null)});
+    $('mo').addEventListener('mousedown',e=>{if(!window._mlock&&e.target.id==='mo'&&e.clientX<e.target.clientWidth)close(null)});
     window._mc=close;
     const f=$('modal').querySelector('[autofocus],input,button.pri');f&&f.focus({preventScroll:true});$('mo').scrollTop=0;
   });
@@ -770,8 +770,7 @@ async function boot(){
   $('hsel').innerHTML=hotels.map(h=>`<option value="${esc(h.id)}">${esc(h.name)}</option>`).join('');
   $('hsel').style.display=hotels.length>1?'':'none';
   renderBell();pickHotel(hotels[0].id);setTimeout(()=>window.profDot&&profDot(),400);
- setTimeout(()=>{if(owner&&!owner.email&&!document.querySelector('#modal .mo'))askEmail(true)},10000);
-  setTimeout(()=>{if(owner&&!owner.email&&!document.querySelector('#modal .mo'))askEmail()},10000);
+  kjMailWatch();
 }
 (async()=>{try{const c=JSON.parse(sessionStorage.getItem('hoCred')||'null');if(!c)return;
   const d=await db.collection('hotel_owners').doc(c.id).get();
@@ -779,7 +778,45 @@ async function boot(){
 
 /* ── owner email (used by KeepJourney to send booking alerts) ── */
 const okMail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
-async function askEmail(force){
+const MAXSKIP=3;
+const skipKey=()=>'kjMailSkip_'+(owner&&owner.id);
+function getSkips(){
+  let n=0;try{n=parseInt(localStorage.getItem(skipKey())||'0',10)||0}catch{}
+  return Math.max(n,Number(owner&&owner.emailSkips)||0);
+}
+async function askEmail(){
+  if(!owner||owner.email)return;
+  const used=getSkips(),must=used>=MAXSKIP,left=MAXSKIP-used;
+  if(!must&&sessionStorage.getItem('kjMailLater'))return;
+  window._mlock=must;
+  const r=await modal(`<h3>${must?'Email is required':'Add your email'}</h3>
+    <p class="msg" style="margin:4px 0 14px">We email you whenever a guest sends a booking request, so you never miss one, even when this page is closed.</p>
+    ${must?'<p class="err" style="margin:0 0 14px">You have skipped this 3 times. Please add your email to continue.</p>':`<p class="hint" style="margin:0 0 12px">You can skip this ${left} more time${left>1?'s':''}.</p>`}
+    <div class="fg" style="margin:0"><label class="l" for="oeM">Your email</label><input class="inp" id="oeM" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" autofocus/></div>
+    <p id="oeE" class="err hide" style="margin:12px 0 0"></p>
+    <div class="mact">${must?'':`<button class="btn" onclick="mclose(null)">Skip for now (${left} left)</button>`}<button class="btn pri" onclick="const v=$('oeM').value.trim().toLowerCase();if(!okMail(v)){$('oeE').textContent='Enter a valid email address.';$('oeE').classList.remove('hide');return}mclose({e:v})">Save email</button></div>`);
+  if(!r){
+    if(must)return;
+    const n=used+1;owner.emailSkips=n;
+    try{localStorage.setItem(skipKey(),String(n))}catch{}
+    try{sessionStorage.setItem('kjMailLater','1')}catch{}
+    db.collection('hotel_owners').doc(owner.id).update({emailSkips:n}).catch(()=>{});
+    return;
+  }
+  try{
+    await db.collection('hotel_owners').doc(owner.id).update({email:r.e,emailUpdatedAt:FV.serverTimestamp()});
+    owner.email=r.e;try{localStorage.removeItem(skipKey())}catch{}
+    if(window.profDot)profDot();
+    toast('Email saved. You will get booking alerts there.');
+  }catch(e){toast('Could not save email: '+e.message,true)}
+}
+let mailW=0;
+function kjMailWatch(){
+  clearInterval(mailW);
+  setTimeout(()=>{if(owner&&!owner.email&&!document.querySelector('#modal .mo'))askEmail()},3000);
+  mailW=setInterval(()=>{if(owner&&!owner.email&&getSkips()>=MAXSKIP&&!document.querySelector('#modal .mo'))askEmail()},4000);
+}
+async function askEmailOld(force){
   if(!owner||(force!==true&&(owner.email||sessionStorage.getItem('kjMailLater'))))return;
   const r=await modal(`<h3>Add your email</h3>
     <p class="msg" style="margin:4px 0 14px">We email you whenever a guest sends a booking request, so you never miss one, even when this page is closed.</p>
@@ -1511,8 +1548,18 @@ async function saveHotel(){
     updatedAt:FV.serverTimestamp(),updatedBy:'owner:'+owner.id};
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving';
   try{
-    await db.collection('hotels').doc(hotel.id).update(data);
-    Object.assign(hotel,data);lastAvail=null;dirty=false;$('savebar').classList.remove('on');toast('Saved. Changes are live in the app.');
+    const {blockedDates:_b,isBookable:_i,updatedAt:_u,updatedBy:_ub,...rest}=data;
+    const nz=v=>v==null||v===''||v===0||v===false||(Array.isArray(v)&&!v.length)?'':JSON.stringify(v);
+    const chg={};Object.keys(rest).forEach(k=>{if(nz(rest[k])!==nz(hotel[k]))chg[k]=rest[k]});
+    const has=Object.keys(chg).length>0;
+    const upd={blockedDates:blk,isBookable:bookable,updatedAt:data.updatedAt,updatedBy:data.updatedBy};
+    if(has)upd.pendingEdit={data:chg,status:'pending',submittedAt:FV.serverTimestamp(),submittedBy:'owner:'+owner.id};
+    else if(hotel.pendingEdit)upd.pendingEdit=FV.delete();
+    await db.collection('hotels').doc(hotel.id).update(upd);
+    hotel.blockedDates=blk;hotel.isBookable=bookable;
+    if(has)hotel.pendingEdit={data:chg,status:'pending',submittedAt:new Date()};else delete hotel.pendingEdit;
+    const msgSaved=has?'Sent for approval. Guests see the new details once KeepJourney approves.':'Saved.';
+    lastAvail=null;dirty=false;$('savebar').classList.remove('on');toast(msgSaved);apBanner();
   }catch(e){toast('Could not save: '+e.message,true)}
   finally{btn.disabled=false;btn.textContent='Save changes'}
 }
@@ -1960,6 +2007,14 @@ let mode='hotel',owner=null,items=[],bks=[],cats=[],bmap={},unsubI=null,unsubB=[
 const catName=k=>{const c=cats.find(x=>x[0]===k);return c?c[1]:(k||'Other')};
 let prr=[]; /* special day prices for the vehicle being edited */
 
+const eff=i=>{if(!i)return i;let o=i;if(i.pendingEdit&&i.pendingEdit.data)o={...o,...i.pendingEdit.data};if(i.approvalStatus==='pending'||i.approvalStatus==='rejected')o={...o,available:i.wantAvailable!==false};return o};
+const apState=x=>{const pe=x.pendingEdit;
+  if(x.approvalStatus==='pending')return{cls:'t0',txt:'Waiting for approval',note:'Not visible in the app until KeepJourney approves.'};
+  if(x.approvalStatus==='rejected')return{cls:'t2',txt:'Rejected',note:x.rejectionReason?'Reason: '+x.rejectionReason:'Edit and save to send it again.'};
+  if(pe&&pe.status==='pending')return{cls:'t0',txt:'Edits waiting for approval',note:'The app still shows the old version.'};
+  if(pe&&pe.status==='rejected')return{cls:'t2',txt:'Edits rejected',note:pe.reason?'Reason: '+pe.reason:'Edit and save to send again.'};
+  return{}};
+
 /* ---------- build the rental app shell ---------- */
 document.body.insertAdjacentHTML('beforeend',`
 <div id="rapp" class="hide">
@@ -1967,7 +2022,7 @@ document.body.insertAdjacentHTML('beforeend',`
     <div class="brand"><span class="lg">🚗</span><div><div>KeepJourney <em>Rental Partner</em></div><div class="tagline">Plan, Book, Travel.</div></div></div>
     <div class="sp"></div>
     <button class="btn iconbtn" id="rthemeBtn" onclick="toggleTheme();rIcons()" aria-label="Toggle dark mode"></button>
-    <div class="who"><div class="av" id="ravi">R</div><span id="rwho"></span></div>
+    <div class="who" style="cursor:pointer" title="My profile" onclick="rOpenProfile()"><div class="av" id="ravi">R</div><span id="rwho"></span></div>
     <button class="btn sm" onclick="rLogout()">Sign out</button>
   </header>
   <nav id="rtabs" role="tablist">
@@ -2054,7 +2109,8 @@ async function start(){
   const nm=owner.name||owner.id;$('rwho').textContent=nm;$('ravi').textContent=nm.trim()[0].toUpperCase();
   $('rhdate').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
   const h=new Date().getHours();$('rgreet').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', '+nm;
-  loadedI=false;loadedB=false;renderAll();
+    loadedI=false;loadedB=false;renderAll();
+  setTimeout(()=>{if(owner&&!owner.email&&!document.querySelector('#modal .mo'))rOpenProfile()},10000);
   try{
     const s=await db.collection('rental_categories').get();
     cats=s.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.active!==false).sort((a,b)=>(a.order||0)-(b.order||0)).map(c=>[c.id,c.name||c.id]);
@@ -2118,15 +2174,15 @@ function renderVeh(){
     G.innerHTML=`<div class="card empty" style="grid-column:1/-1"><div class="big">${items.length?'🔍':'🚗'}</div><b>${items.length?'No matching vehicles':'No vehicles yet'}</b>${items.length?'Try a different search.':'Add your first vehicle to start getting rental requests.'}${items.length?'':`<div style="margin-top:14px"><button class="btn pri" onclick="rvOpen()">${ic('plus')}Add vehicle</button></div>`}</div>`;
     return;
   }
-  G.innerHTML=f.map(x=>{
+  G.innerHTML=f.map(x0=>{const x=eff(x0),ap=apState(x0);
     const ph=Number(x.pricePerHour)||0,pd=Number(x.pricePerDay)||0,av=x.available!==false,sold=typeof x.stock==='number'&&x.stock<=0;
     const pr=[];if(ph)pr.push(`<span>${rs(ph)} / hour</span>`);if(pd)pr.push(`<span>${rs(pd)} / day</span>`);if(!ph&&!pd)pr.push('<span class="m">Price on request</span>');
     if(x.deposit>0)pr.push(`<span class="m">Deposit ${rs(x.deposit)}</span>`);
     if(typeof x.stock==='number'&&!sold)pr.push(`<span class="m">${x.stock} available</span>`);
     return`<article class="card rv ${av?'':'off'}">
       <div class="im">${okUrl(x.imageUrl)?`<img src="${esc(x.imageUrl)}" alt="" loading="lazy" onerror="this.remove()"/>`:emo(x.category)}
-        <span class="tag ${sold?'t2':av?'t1':'t3'}">${sold?'Sold out':av?'Live in app':'Hidden'}</span><span class="cat">${esc(catName(x.category||'other'))}</span></div>
-      <div class="bd"><div class="nm">${esc(x.name||'Vehicle')}</div><div class="ad">${esc(x.address||'No address added')}</div><div class="pr">${pr.join('')}</div></div>
+        <span class="tag ${ap.cls||(sold?'t2':av?'t1':'t3')}">${ap.txt||(sold?'Sold out':av?'Live in app':'Hidden')}</span><span class="cat">${esc(catName(x.category||'other'))}</span></div>
+      <div class="bd"><div class="nm">${esc(x.name||'Vehicle')}</div><div class="ad">${esc(x.address||'No address added')}</div>${ap.note?`<div class="ad" style="color:${ap.cls==='t2'?'var(--red)':'var(--amber)'};font-weight:700">${esc(ap.note)}</div>`:''}<div class="pr">${pr.join('')}</div></div>
       <div class="ac"><button class="btn sm" onclick="rvOpen('${x.id}')">${ic('edit')}Edit</button><button class="btn sm" onclick="rvToggle('${x.id}')">${av?'Hide':'Show'}</button><button class="btn sm red" onclick="rvDelete('${x.id}')">${ic('trash')}Delete</button></div>
     </article>`}).join('');
 }
@@ -2258,7 +2314,7 @@ async function rvUpload(files){
   rvMsg(ok?[`✓ ${ok} photo${ok>1?'s':''} uploaded.`]:null,'ok');pvRender();
 }
 function rvOpen(id){
-  const x=id?items.find(i=>i.id===id):null;if(id&&!x)return;
+  const x=id?eff(items.find(i=>i.id===id)):null;if(id&&!x)return;
   pv=x?[x.imageUrl,...(Array.isArray(x.images)?x.images:[])].filter(okUrl):[];
 prr=x&&Array.isArray(x.priceRules)?x.priceRules.map(r=>({...r})):[];
   const list=cats.slice();if(x&&x.category&&!list.some(c=>c[0]===x.category))list.push([x.category,x.category]);
@@ -2322,7 +2378,12 @@ function prrAdd(){
 }
 function prrDel(i){prr.splice(i,1);$('prr_list').innerHTML=prrHtml()}
 async function rvSave(id){
-  try{ await rvSave2(id) }catch(e){ const er=$('rv_err'); if(er){er.textContent='Could not save: '+e.message;er.classList.remove('hide')} else toast(e.message,true); const b=$('rv_save'); if(b){b.disabled=false;b.textContent=id?'Save changes':'Add vehicle'} }
+  try{ await rvSave2(id) }
+  catch(e){
+    const er=$('rv_err');
+    if(er){er.textContent='Could not save: '+e.message;er.classList.remove('hide')}else toast(e.message,true);
+    const b=$('rv_save');if(b){b.disabled=false;b.textContent=id?'Save changes':'Add vehicle'}
+  }
 }
 async function rvSave2(id){
   if(pvBusy){toast('Please wait, your photo is still being checked.',true);return}
@@ -2333,30 +2394,41 @@ async function rvSave2(id){
   const name=g('rv_name');if(!name)return fail('Enter the vehicle name.');
   const stockRaw=g('rv_stock');let stock;
   if(stockRaw!==''){stock=parseInt(stockRaw);if(isNaN(stock)||stock<0)return fail('Stock must be 0 or more.')}
-     const list=i=>($(i)?$(i).value:'').split(',').map(s=>s.trim()).filter(Boolean);
+  const list=i=>($(i)?$(i).value:'').split(',').map(s=>s.trim()).filter(Boolean);
   if(g('rv_avf')&&g('rv_avt')&&g('rv_avf')>g('rv_avt'))return fail('Available-from date must be before available-to date.');
   if((g('rv_tmf')||g('rv_tmt'))&&(!g('rv_tmf')||!g('rv_tmt')||g('rv_tmf')>=g('rv_tmt')))return fail('Set both daily times, with "from" earlier than "to".');
   const ts=FV.serverTimestamp();
   const data={name,category:$('rv_cat').value||'other',description:g('rv_desc'),address:g('rv_addr'),
     pricePerHour:n('rv_ph'),pricePerDay:n('rv_pd'),deposit:n('rv_dep'),tags:list('rv_tags'),pickupLocations:list('rv_pick'),
-        availableFrom:$('rv_avf').value||'',availableTo:$('rv_avt').value||'',timeFrom:$('rv_tmf').value||'',timeTo:$('rv_tmt').value||'',
+    availableFrom:$('rv_avf').value||'',availableTo:$('rv_avt').value||'',timeFrom:$('rv_tmf').value||'',timeTo:$('rv_tmt').value||'',
     imageUrl:pv[0]||'',images:pv.slice(1,MAX_PHOTOS),available:$('rv_av').checked,priceRules:prr,
     ownerId:owner.id,ownerName:owner.name||owner.id,updatedAt:ts,updatedBy:'rental-owner:'+owner.id};
   const btn=$('rv_save');btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving';
   try{
+    let msg;
     if(id){
-      if(!items.some(i=>i.id===id))throw new Error('This vehicle is not yours.');
-      data.stock=stockRaw===''?FV.delete():stock;
-      await db.collection('rental_items').doc(id).update(data);
+      const cur=items.find(i=>i.id===id);
+      if(!cur)throw new Error('This vehicle is not yours.');
+      const stockVal=stockRaw===''?FV.delete():stock;
+      if(cur.approvalStatus==='pending'||cur.approvalStatus==='rejected'){
+        await db.collection('rental_items').doc(id).update({...data,available:false,wantAvailable:data.available,stock:stockVal,approvalStatus:'pending',rejectionReason:FV.delete(),submittedAt:ts});
+        msg='Sent for approval. It goes live once KeepJourney approves.';
+      }else{
+        const {available,ownerId,ownerName,updatedAt,updatedBy,...rest}=data;
+        await db.collection('rental_items').doc(id).update({available,stock:stockVal,pendingEdit:{data:rest,status:'pending',submittedAt:ts,submittedBy:'rental-owner:'+owner.id},updatedAt:ts,updatedBy});
+        msg='Changes sent for approval. The app shows the old version until KeepJourney approves.';
+      }
     }else{
       if(stockRaw!=='')data.stock=stock;
-      await db.collection('rental_items').add({...data,minHours:1,maxHours:12,minDays:1,maxDays:30,maxQuantity:10,order:100,createdAt:ts});
+      await db.collection('rental_items').add({...data,available:false,wantAvailable:data.available,approvalStatus:'pending',submittedAt:ts,minHours:1,maxHours:12,minDays:1,maxDays:30,maxQuantity:10,order:100,createdAt:ts});
+      msg='Vehicle sent for approval. It will appear in the app once KeepJourney approves it.';
     }
-    mclose(true);toast(id?'Vehicle updated':'Vehicle added. It is live in the app.');
+    mclose(true);toast(msg);
   }catch(e){btn.disabled=false;btn.textContent=id?'Save changes':'Add vehicle';fail('Could not save: '+e.message)}
 }
 async function rvToggle(id){
   const x=items.find(i=>i.id===id);if(!x)return;
+  if(x.approvalStatus==='pending'||x.approvalStatus==='rejected'){toast('This vehicle is not approved yet, so it cannot go live.',true);return}
   try{await db.collection('rental_items').doc(id).update({available:x.available===false,updatedAt:FV.serverTimestamp()});toast(x.available===false?'Vehicle is visible again':'Vehicle hidden from the app')}
   catch(e){toast(e.message,true)}
 }
@@ -2368,7 +2440,31 @@ async function rvDelete(id){
   catch(e){toast(e.message,true)}
 }
 
-Object.assign(window,{prrAdd,prrDel,rtab,rLogout,rIcons,renderVeh,renderBk,rbDetail,rSt,rQuote,rvOpen,rvSave,rvToggle,rvDelete,rvLink,rvUpload,rvDel,rvCover});
+function rOpenProfile(){
+  if(!owner)return;
+  const nm=owner.name||owner.id;
+  modal(`<h3>My profile</h3>
+    <div class="pf-top"><div class="av">${esc(nm.trim()[0].toUpperCase())}</div><div><b>${esc(nm)}</b><small>Rental partner</small></div></div>
+    <div class="pf-row"><span>Partner ID</span><span>${esc(owner.id)}</span></div>
+    <div class="fg" style="margin:18px 0 0"><label class="l" for="rpM">Email for booking alerts</label>
+      <input class="inp" id="rpM" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="${esc(owner.email||'')}"/>
+      <div class="hint">We email you when a customer requests one of your vehicles.</div></div>
+    <p id="rpE" class="err hide" style="margin:12px 0 0" role="alert"></p>
+    <div class="mact stick"><button class="btn" onclick="mclose(null)">Close</button><button class="btn pri" id="rpS" onclick="rSaveEmail()">Save</button></div>`);
+}
+async function rSaveEmail(){
+  const er=$('rpE'),v=$('rpM').value.trim().toLowerCase(),btn=$('rpS');er.classList.add('hide');
+  if(v&&!okMail(v)){er.textContent='Enter a valid email address.';er.classList.remove('hide');return}
+  if(v===(owner.email||'')){mclose(true);return}
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving';
+  try{
+    const ref=db.collection('rental_owners').doc(owner.id);
+    if(v){await ref.update({email:v,emailUpdatedAt:FV.serverTimestamp()});owner.email=v;toast('Email saved. You will get booking alerts there.')}
+    else{await ref.update({email:FV.delete(),emailUpdatedAt:FV.serverTimestamp()});delete owner.email;toast('Email removed.')}
+    mclose(true);
+  }catch(e){btn.disabled=false;btn.textContent='Save';er.textContent='Could not save: '+e.message;er.classList.remove('hide')}
+}
+Object.assign(window,{rOpenProfile,rSaveEmail,prrAdd,prrDel,rtab,rLogout,rIcons,renderVeh,renderBk,rbDetail,rSt,rQuote,rvOpen,rvSave,rvToggle,rvDelete,rvLink,rvUpload,rvDel,rvCover});
 })();
 </script>
 
@@ -3870,6 +3966,44 @@ window.pfSave=async function(){
     er.textContent='Could not save: '+e.message;er.classList.remove('hide');
   }
 };
+})();
+</script>
+
+<script>
+(()=>{
+'use strict';
+/* form shows the owner's pending version; everything else keeps using the live hotel */
+const _rf=window.renderForm;
+window.renderForm=function(){
+  const real=hotel;
+  if(real&&real.pendingEdit&&real.pendingEdit.data)hotel={...real,...real.pendingEdit.data};
+  try{_rf()}finally{hotel=real}
+  apBanner();
+};
+window.apBanner=function(){
+  const f=$('hform');if(!f||!hotel)return;
+  let b=$('apBn');if(!b){b=document.createElement('div');b.id='apBn';f.insertBefore(b,f.firstChild)}
+  const pe=hotel.pendingEdit;
+  if(!pe){b.innerHTML='';return}
+  b.innerHTML=pe.status==='rejected'
+   ?`<div class="hbad" style="margin:0 0 14px"><b>KeepJourney did not approve your last changes.</b><br>${pe.reason?'Reason: '+esc(pe.reason)+'<br>':''}Your version is kept below. Fix it and press Save changes to send it again. Guests still see the old version.</div>`
+   :`<div class="hidea" style="margin:0 0 14px;background:var(--amber-l);color:var(--amber)">⏳ Your changes are waiting for KeepJourney approval. Guests still see the previous version until it is approved. You can keep editing.</div>`;
+};
+/* live updates when admin approves / rejects */
+let hu=null;
+function watchSelf(){
+  if(hu){hu();hu=null}
+  if(!hotel)return;const id=hotel.id;
+  hu=db.collection('hotels').doc(id).onSnapshot(s=>{
+    if(!s.exists||!hotel||hotel.id!==id)return;
+    const fresh={id,...s.data()},i=hotels.findIndex(h=>h.id===id);
+    if(i>-1)hotels[i]=fresh;hotel=fresh;
+    if(!dirty&&!uploading)renderForm();else apBanner();
+  },()=>{});
+}
+const _ph=window.pickHotel;
+window.pickHotel=function(){_ph.apply(this,arguments);watchSelf()};
+if(hotel)watchSelf();
 })();
 </script>
 
