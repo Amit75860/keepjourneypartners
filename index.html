@@ -769,7 +769,9 @@ async function boot(){
   const nm=owner.name||owner.id;$('who').textContent=nm;$('avi').textContent=nm.trim()[0].toUpperCase();
   $('hsel').innerHTML=hotels.map(h=>`<option value="${esc(h.id)}">${esc(h.name)}</option>`).join('');
   $('hsel').style.display=hotels.length>1?'':'none';
- renderBell();pickHotel(hotels[0].id);setTimeout(()=>window.profDot&&profDot(),400);
+  renderBell();pickHotel(hotels[0].id);setTimeout(()=>window.profDot&&profDot(),400);
+ setTimeout(()=>{if(owner&&!owner.email&&!document.querySelector('#modal .mo'))askEmail(true)},10000);
+  setTimeout(()=>{if(owner&&!owner.email&&!document.querySelector('#modal .mo'))askEmail()},10000);
 }
 (async()=>{try{const c=JSON.parse(sessionStorage.getItem('hoCred')||'null');if(!c)return;
   const d=await db.collection('hotel_owners').doc(c.id).get();
@@ -922,7 +924,7 @@ function renderBookings(){
       <div class="gh"><div class="gav">${esc((b.name||'G').trim()[0].toUpperCase())}</div><div><div class="n">${esc(b.name||'Guest')}</div>
         <div class="s">${phone?`<a href="tel:${phone}">${phone}</a><br>`:''}${blk?'Blocked by hotel':`${b.guests||'?'} guests`} · #${esc(String(b.bookingId||b.id).slice(-8))}</div>${pill?`<span class="note" style="background:var(--sky-l);color:var(--sky);margin-right:4px">${pill}</span>`:''}${b.note?`<span class="note">${esc(b.note)}</span>`:''}</div></div>
       <div><div class="n" style="font-size:14px">${esc(b.roomName||'')} × ${b.rooms||1}</div><div class="s">${fd(b.checkIn)} → ${fd(b.checkOut)}${whenTag(b)}<br>${stay}${b.foodIncluded?`<br>Food: ${b.foodType==='nonveg'?'Non-veg':'Veg'} (${rs(b.foodAmount)})`:''}</div></div>
-      <div>${money}<span class="tag ${cls}">${lbl}</span>${delBox}</div>
+            <div>${money}<span class="tag ${cls}">${lbl}</span>${s===3&&!del?`<span class="note" style="display:block;background:var(--card2);color:var(--mid);margin-top:6px">${b.cancelledBy==='hotel'?'Cancelled by you (hotel)':b.cancelledBy==='admin'?'Cancelled by KeepJourney':b.cancelledBy?'Cancelled by guest':'Cancelled (who is not recorded)'}${b.cancelledAt?' · '+esc(fdt(b.cancelledAt)):''}</span>`:''}${delBox}</div>
       <div class="acts">${a.join('')}</div></article>`;
   }).join('');
 }
@@ -2288,7 +2290,7 @@ prr=x&&Array.isArray(x.priceRules)?x.priceRules.map(r=>({...r})):[];
         <div class="fg"><label class="l" for="prr_lbl">Name (optional)</label><input class="inp" id="prr_lbl" maxlength="40" placeholder="e.g. Durga Puja"/></div></div>
       <button type="button" class="btn sm pri" onclick="prrAdd()">${ic('plus')}Add special price</button>
       <p id="prr_e" class="err hide" style="margin-top:10px"></p></div>
-    <div class="fg"><label class="l" for="rv_tags">Highlights (comma separated)</label>input class="inp" id="rv_tags" placeholder="350cc, Helmet included" value="${esc((x&&x.tags||[]).join(', '))}"/></div>
+    <div class="fg"><label class="l" for="rv_tags">Highlights (comma separated)</label><input class="inp" id="rv_tags" placeholder="350cc, Helmet included" value="${esc((x&&x.tags||[]).join(', '))}"/></div>
     <div class="fg"><label class="l" for="rv_pick">Pickup spots (comma separated)</label><input class="inp" id="rv_pick" placeholder="Railway Station, Bus Stand" value="${esc((x&&x.pickupLocations||[]).join(', '))}"/></div>
     <div class="fg"><label class="l" for="rv_lk">Photos <span style="color:var(--soft);font-weight:600">(first photo is the cover)</span></label>
       ${up?`<label class="up" id="rv_up" for="rv_file" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="event.preventDefault();this.classList.remove('drag');rvUpload(event.dataTransfer.files)">${ic('upload')}<span>Upload photos from your phone or computer</span><small>JPG or PNG, up to ${MAX_PHOTOS} photos. We resize them automatically.</small><input type="file" id="rv_file" accept="image/*" multiple onchange="rvUpload(this.files);this.value=''"/></label>`:''}
@@ -2320,6 +2322,9 @@ function prrAdd(){
 }
 function prrDel(i){prr.splice(i,1);$('prr_list').innerHTML=prrHtml()}
 async function rvSave(id){
+  try{ await rvSave2(id) }catch(e){ const er=$('rv_err'); if(er){er.textContent='Could not save: '+e.message;er.classList.remove('hide')} else toast(e.message,true); const b=$('rv_save'); if(b){b.disabled=false;b.textContent=id?'Save changes':'Add vehicle'} }
+}
+async function rvSave2(id){
   if(pvBusy){toast('Please wait, your photo is still being checked.',true);return}
   const er=$('rv_err'),fail=m=>{er.textContent=m;er.classList.remove('hide');er.scrollIntoView({block:'nearest'})};
   er.classList.add('hide');
@@ -2328,7 +2333,7 @@ async function rvSave(id){
   const name=g('rv_name');if(!name)return fail('Enter the vehicle name.');
   const stockRaw=g('rv_stock');let stock;
   if(stockRaw!==''){stock=parseInt(stockRaw);if(isNaN(stock)||stock<0)return fail('Stock must be 0 or more.')}
-    const list=i=>g(i).split(',').map(s=>s.trim()).filter(Boolean);
+     const list=i=>($(i)?$(i).value:'').split(',').map(s=>s.trim()).filter(Boolean);
   if(g('rv_avf')&&g('rv_avt')&&g('rv_avf')>g('rv_avt'))return fail('Available-from date must be before available-to date.');
   if((g('rv_tmf')||g('rv_tmt'))&&(!g('rv_tmf')||!g('rv_tmt')||g('rv_tmf')>=g('rv_tmt')))return fail('Set both daily times, with "from" earlier than "to".');
   const ts=FV.serverTimestamp();
