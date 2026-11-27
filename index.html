@@ -763,7 +763,7 @@ function logout(){if((dirty||uploading)&&!confirm('You have unsaved changes or a
 async function boot(){
   const ids=(Array.isArray(owner.hotelIds)?owner.hotelIds:[]).slice(0,20);
   const snaps=await Promise.all(ids.map(i=>db.collection('hotels').doc(i).get()));
-  hotels=snaps.filter(s=>s.exists).map(s=>({id:s.id,...s.data()}));
+  hotels=snaps.filter(s=>s.exists&&s.data().showInOwnerPortal!==false).map(s=>({id:s.id,...s.data()}));
   if(!hotels.length){$('lerr').textContent='No hotel is linked to your account yet.';$('lerr').classList.remove('hide');return}
   $('login').classList.add('hide');$('app').classList.remove('hide');
   const nm=owner.name||owner.id;$('who').textContent=nm;$('avi').textContent=nm.trim()[0].toUpperCase();
@@ -2117,7 +2117,7 @@ async function start(){
   }catch{}
   if(!cats.length)cats=FALLBACK;
   unsubI=db.collection('rental_items').where('ownerId','==',owner.id).onSnapshot(s=>{
-    items=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+items=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.showInOwnerPortal!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     loadedI=true;
     const key=items.map(i=>i.id).sort().join();
     if(key!==itemKey){itemKey=key;watchBookings()}
@@ -2181,8 +2181,8 @@ function renderVeh(){
     if(typeof x.stock==='number'&&!sold)pr.push(`<span class="m">${x.stock} available</span>`);
     return`<article class="card rv ${av?'':'off'}">
       <div class="im">${okUrl(x.imageUrl)?`<img src="${esc(x.imageUrl)}" alt="" loading="lazy" onerror="this.remove()"/>`:emo(x.category)}
-        <span class="tag ${ap.cls||(sold?'t2':av?'t1':'t3')}">${ap.txt||(sold?'Sold out':av?'Live in app':'Hidden')}</span><span class="cat">${esc(catName(x.category||'other'))}</span></div>
-      <div class="bd"><div class="nm">${esc(x.name||'Vehicle')}</div><div class="ad">${esc(x.address||'No address added')}</div>${ap.note?`<div class="ad" style="color:${ap.cls==='t2'?'var(--red)':'var(--amber)'};font-weight:700">${esc(ap.note)}</div>`:''}<div class="pr">${pr.join('')}</div></div>
+        <span class="tag ${ap.cls||(sold?'t2':av?'t1':'t3')}">${ap.txt||(x.showInApp===false?'Hidden by KeepJourney':sold?'Sold out':av?'Live in app':'Hidden')}</span><span class="cat">${esc(catName(x.category||'other'))}</span></div>
+      <div class="bd"><div class="nm">${esc(x.name||'Vehicle')}</div><div class="ad">${esc(x.address||'No address added')}</div><div class="ad"${x0.phone?'':' style="color:var(--red);font-weight:700"'}>${x0.phone?'📞 +91 '+esc(cleanPhone(x0.phone)):'No contact number. Tap Edit to add it.'}</div>${ap.note?`<div class="ad" style="color:${ap.cls==='t2'?'var(--red)':'var(--amber)'};font-weight:700">${esc(ap.note)}</div>`:''}<div class="pr">${pr.join('')}</div></div>
       <div class="ac"><button class="btn sm" onclick="rvOpen('${x.id}')">${ic('edit')}Edit</button><button class="btn sm" onclick="rvToggle('${x.id}')">${av?'Hide':'Show'}</button><button class="btn sm red" onclick="rvDelete('${x.id}')">${ic('trash')}Delete</button></div>
     </article>`}).join('');
 }
@@ -2201,14 +2201,18 @@ function renderBk(){
     const phone=esc(b.userPhone||'');
     const a=[`<button class="btn sm" onclick="rbDetail('${b.id}')">${ic('eye')}Details</button>`];
     if(s===0)a.push(`<button class="btn sm pri" onclick="rSt('${b.id}',1)">${ic('check')}Confirm</button>`,`<button class="btn sm red" onclick="rSt('${b.id}',3)">Reject</button>`);
-    if(s===1)a.push(`<button class="btn sm pri" onclick="rSt('${b.id}',2)">${ic('check')}Complete</button>`,`<button class="btn sm red" onclick="rSt('${b.id}',4)">Cancel</button>`);
+    if(s===1){
+      if(needsOtp(b))a.push(`<button class="btn sm pri" onclick="rHandover('${b.id}')">${ic('key')}Verify OTP &amp; hand over</button>`);
+      else a.push(`<button class="btn sm pri" onclick="rSt('${b.id}',2)">${ic('check')}Complete</button>`);
+      if(!b.handoverVerifiedAt)a.push(`<button class="btn sm red" onclick="rSt('${b.id}',4)">Cancel</button>`);
+    }
     if(quote&&s<=1)a.push(`<button class="btn sm" onclick="rQuote('${b.id}')">${ic('rupee')}${b.quotedAmount!=null?'Update':'Set'} quote</button>`);
     const amt=quote?(b.quotedAmount!=null?money(b.quotedAmount):'Quote pending'):money(b.total);
     return`<article class="card bk ${sc} ${s>=2?'done':''}">
       <div class="gh"><div class="gav">${esc((b.userName||'G').trim()[0].toUpperCase())}</div><div><div class="n">${esc(b.userName||'Customer')}</div>
         <div class="s">${phone?`<a href="tel:${phone}">${phone}</a><br>`:''}#${esc(String(b.id).slice(-8))}</div>${quote?'<span class="note">Quote request</span>':''}</div></div>
       <div><div class="n" style="font-size:14px">${esc(b.itemName||'')}${b.quantity>1?' × '+b.quantity:''}</div><div class="s">${fdt(b.startDateTime)||'—'}<br>${quote?'Waiting for your quote':`${b.duration||'?'} ${unit}${b.duration>1?'s':''}`}<br>📍 ${esc(b.pickupPoint||'—')}</div></div>
-      <div><div class="amt">${amt}</div><div class="s" style="margin:4px 0 7px">${!quote&&b.deposit>0?'+ '+money(b.deposit)+' deposit at pickup':'Pay at pickup'}${(s===3||s===4)&&b.cancelReason?'<br>'+esc(b.cancelReason):''}</div><span class="tag ${tc}">${lb}</span></div>
+      <div><div class="amt">${amt}</div><div class="s" style="margin:4px 0 7px">${!quote&&b.deposit>0?'+ '+money(b.deposit)+' deposit at pickup':'Pay at pickup'}${(s===3||s===4)&&b.cancelReason?'<br>'+esc(b.cancelReason):''}</div><span class="tag ${tc}">${lb}</span>${b.handoverVerifiedAt?'<div class="s" style="margin-top:6px;color:var(--green);font-weight:750">✓ Handed over (OTP verified)</div>':''}</div>
       <div class="acts">${a.join('')}</div></article>`}).join('');
 }
 $('rchips').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b){filtC=b.dataset.c;renderVeh()}});
@@ -2225,6 +2229,7 @@ function rbDetail(id){
     ${row('Vehicle',esc(b.itemName||'—')+(b.quantity>1?' × '+b.quantity:''))}${row('Start',esc(fdt(b.startDateTime)||'—'))}${quote?'':row('End',esc(fdt(b.endDateTime)||'—'))}
     ${row('Pickup',esc(b.pickupPoint||'—'))}${b.notes?row(quote?'Request':'Notes',esc(b.notes)):''}
     ${extra.map(x=>row(x.label||x.key||'Info',esc(x.value||'—'))).join('')}
+    ${b.handoverVerifiedAt?row('Handover','OTP verified · '+esc(fdt(b.handoverVerifiedAt)||'just now')):needsOtp(b)&&Number(b.status)===1?row('Handover','Waiting for OTP'):''}
     ${row('Total',quote?(b.quotedAmount!=null?money(b.quotedAmount):'Quote pending'):money(b.total))}</div>
     <div class="mact"><button class="btn pri" onclick="mclose(true)">Close</button></div>`);
 }
@@ -2245,6 +2250,8 @@ async function rSt(id,st){
       if(!items.some(i=>i.id===d.itemId))throw new Error('This booking is not for one of your vehicles.');
       const ok={0:[1,3],1:[2,4]}[cur];
       if(!ok||!ok.includes(st))throw new Error('This booking was already changed. Try again.');
+      if(st===2&&needsOtp(d))throw new Error('Verify the handover OTP before completing.');
+      if(st===4&&d.handoverVerifiedAt)throw new Error('The item is already handed over, so this cannot be cancelled.');
       const u={status:st,updatedAt:ts,handledBy:'rental-owner:'+owner.id};
       if(reason)u.cancelReason=reason;
       if(st===4){u.cancelledBy='partner';u.cancelledAt=ts}
@@ -2252,6 +2259,50 @@ async function rSt(id,st){
     });
     toast({1:'Booking confirmed',2:'Rental completed',3:'Request rejected',4:'Booking cancelled'}[st]);
   }catch(e){toast(e.message,true)}
+}
+/* ---------- handover: the customer's OTP, checked when the item is given ---------- */
+/* Bookings with no code (made by an older app version) can be completed as before. */
+const needsOtp=b=>!!b.handoverOtp&&!b.handoverVerifiedAt;
+const otpTries={};   /* per booking: wrong tries and lock time */
+function rHandover(id){
+  const b=bks.find(x=>x.id===id);if(!b)return;
+  modal(`<h3>Hand over to ${esc(b.userName||'the customer')}</h3>
+    <p class="msg" style="margin-top:4px">${esc(b.itemName||'')}. Ask the customer for the 6 digit OTP shown in My Rentals in their app.</p>
+    <div class="fg" style="margin-top:14px"><label class="l" for="ho_otp">Handover OTP</label><input class="inp" id="ho_otp" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="------" style="font-size:24px;letter-spacing:.4em;text-align:center;font-weight:800" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter'){event.preventDefault();rHandoverSave('${b.id}')}" autofocus/></div>
+    <p id="ho_err" class="err hide" role="alert"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Close</button><button class="btn pri" id="ho_btn" onclick="rHandoverSave('${b.id}')">Verify and hand over</button></div>`);
+}
+async function rHandoverSave(id){
+  const inp=$('ho_otp'),er=$('ho_err'),btn=$('ho_btn');if(!inp||btn.disabled)return;
+  const fail=m=>{er.textContent=m;er.classList.remove('hide')};er.classList.add('hide');
+  const t=otpTries[id]||(otpTries[id]={n:0,until:0});
+  if(t.until>Date.now())return fail('Too many wrong tries. Wait 2 minutes.');
+  const code=inp.value.trim();
+  if(!/^\d{6}$/.test(code))return fail('Enter the 6 digit OTP.');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Checking';
+  const ref=db.collection('rental_bookings').doc(id),ts=FV.serverTimestamp();
+  try{
+    await db.runTransaction(async tx=>{
+      const s=await tx.get(ref);if(!s.exists)throw new Error('This booking no longer exists.');
+      const d=s.data();
+      if(!items.some(i=>i.id===d.itemId))throw new Error('This booking is not for one of your vehicles.');
+      if(Number(d.status)!==1)throw new Error('Only a confirmed booking can be handed over.');
+      if(d.handoverVerifiedAt)throw new Error('This item is already handed over.');
+      if(String(d.handoverOtp||'')!==code)throw new Error('WRONG_OTP');
+      tx.update(ref,{handoverVerifiedAt:ts,handoverVerifiedBy:'rental-owner:'+owner.id,updatedAt:ts});
+    });
+    delete otpTries[id];
+    if($('ho_otp')===inp)mclose(true);
+    toast('OTP verified. Item handed over.');
+  }catch(e){
+    let msg=e.message;
+    if(msg==='WRONG_OTP'){
+      t.n++;msg='Wrong OTP. Please check with the customer.';
+      if(t.n>=5){t.n=0;t.until=Date.now()+2*6e4;msg='Too many wrong tries. Wait 2 minutes.'}
+    }
+    btn.disabled=false;btn.textContent='Verify and hand over';
+    fail(msg);
+  }
 }
 async function rQuote(id){
   const b=bks.find(x=>x.id===id);if(!b)return;
@@ -2323,6 +2374,7 @@ prr=x&&Array.isArray(x.priceRules)?x.priceRules.map(r=>({...r})):[];
   modal(`<h3>${x?'Edit vehicle':'Add a vehicle'}</h3><p class="msg" style="margin:4px 0 16px">Guests will see this in the KeepJourney app${x?'':' as soon as you save'}.</p>
     <div class="row"><div class="fg"><label class="l" for="rv_name">Vehicle name</label><input class="inp" id="rv_name" maxlength="80" placeholder="e.g. Royal Enfield 350" value="${esc(x?x.name:'')}"/></div>
     <div class="fg"><label class="l" for="rv_cat">Type</label><select class="inp" id="rv_cat">${list.map(([k,l])=>`<option value="${esc(k)}" ${x&&x.category===k?'selected':''}>${esc(l)}</option>`).join('')}</select></div></div>
+    <div class="fg"><label class="l" for="rv_phone">Contact number</label><div class="phf"><em>+91</em><input class="inp" id="rv_phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="18" placeholder="10 digit number" value="${esc(cleanPhone((x&&x.phone)||owner.phone||(items.find(i=>i.phone)||{}).phone))}" oninput="this.value=cleanPhone(this.value)"/></div><div class="hint">Customers call you on this number from the app. A change shows as soon as you save.</div></div>
     <div class="fg"><label class="l" for="rv_desc">Description</label><textarea class="inp" id="rv_desc" rows="2" placeholder="Model, condition, what is included (helmet, fuel…)">${esc(x?x.description:'')}</textarea></div>
     <div class="fg"><label class="l" for="rv_addr">Area / address</label><input class="inp" id="rv_addr" placeholder="e.g. Bus Stand Road, Purulia, West Bengal" value="${esc(x?x.address:'')}"/><div class="hint">Include town, district and state. Guests searching these words will find your vehicle.</div></div>
     <div class="row"><div class="fg"><label class="l" for="rv_ph">Price per hour (₹)</label><input class="inp" id="rv_ph" type="number" min="0" inputmode="numeric" value="${v('pricePerHour')}"/></div>
@@ -2392,13 +2444,15 @@ async function rvSave2(id){
   if($('rv_lk').value.trim()){await rvLink();if($('rv_lk').value.trim())return fail('Fix or clear the photo link box, then save again.')}
   const g=i=>$(i).value.trim(),n=i=>{const x=parseFloat($(i).value);return isNaN(x)||x<0?0:x};
   const name=g('rv_name');if(!name)return fail('Enter the vehicle name.');
+  const phone=cleanPhone(g('rv_phone'));
+  if(!/^[6-9]\d{9}$/.test(phone))return fail('Enter a valid 10 digit contact number.');
   const stockRaw=g('rv_stock');let stock;
   if(stockRaw!==''){stock=parseInt(stockRaw);if(isNaN(stock)||stock<0)return fail('Stock must be 0 or more.')}
   const list=i=>($(i)?$(i).value:'').split(',').map(s=>s.trim()).filter(Boolean);
   if(g('rv_avf')&&g('rv_avt')&&g('rv_avf')>g('rv_avt'))return fail('Available-from date must be before available-to date.');
   if((g('rv_tmf')||g('rv_tmt'))&&(!g('rv_tmf')||!g('rv_tmt')||g('rv_tmf')>=g('rv_tmt')))return fail('Set both daily times, with "from" earlier than "to".');
   const ts=FV.serverTimestamp();
-  const data={name,category:$('rv_cat').value||'other',description:g('rv_desc'),address:g('rv_addr'),
+  const data={phone,name,category:$('rv_cat').value||'other',description:g('rv_desc'),address:g('rv_addr'),
     pricePerHour:n('rv_ph'),pricePerDay:n('rv_pd'),deposit:n('rv_dep'),tags:list('rv_tags'),pickupLocations:list('rv_pick'),
     availableFrom:$('rv_avf').value||'',availableTo:$('rv_avt').value||'',timeFrom:$('rv_tmf').value||'',timeTo:$('rv_tmt').value||'',
     imageUrl:pv[0]||'',images:pv.slice(1,MAX_PHOTOS),available:$('rv_av').checked,priceRules:prr,
@@ -2414,8 +2468,8 @@ async function rvSave2(id){
         await db.collection('rental_items').doc(id).update({...data,available:false,wantAvailable:data.available,stock:stockVal,approvalStatus:'pending',rejectionReason:FV.delete(),submittedAt:ts});
         msg='Sent for approval. It goes live once KeepJourney approves.';
       }else{
-        const {available,ownerId,ownerName,updatedAt,updatedBy,...rest}=data;
-        await db.collection('rental_items').doc(id).update({available,stock:stockVal,pendingEdit:{data:rest,status:'pending',submittedAt:ts,submittedBy:'rental-owner:'+owner.id},updatedAt:ts,updatedBy});
+        const {phone,available,ownerId,ownerName,updatedAt,updatedBy,...rest}=data;
+        await db.collection('rental_items').doc(id).update({phone,available,stock:stockVal,pendingEdit:{data:rest,status:'pending',submittedAt:ts,submittedBy:'rental-owner:'+owner.id},updatedAt:ts,updatedBy});
         msg='Changes sent for approval. The app shows the old version until KeepJourney approves.';
       }
     }else{
@@ -2429,6 +2483,7 @@ async function rvSave2(id){
 async function rvToggle(id){
   const x=items.find(i=>i.id===id);if(!x)return;
   if(x.approvalStatus==='pending'||x.approvalStatus==='rejected'){toast('This vehicle is not approved yet, so it cannot go live.',true);return}
+  if(x.showInApp===false){toast('KeepJourney has hidden this vehicle from the app.',true);return}
   try{await db.collection('rental_items').doc(id).update({available:x.available===false,updatedAt:FV.serverTimestamp()});toast(x.available===false?'Vehicle is visible again':'Vehicle hidden from the app')}
   catch(e){toast(e.message,true)}
 }
@@ -2464,7 +2519,7 @@ async function rSaveEmail(){
     mclose(true);
   }catch(e){btn.disabled=false;btn.textContent='Save';er.textContent='Could not save: '+e.message;er.classList.remove('hide')}
 }
-Object.assign(window,{rOpenProfile,rSaveEmail,prrAdd,prrDel,rtab,rLogout,rIcons,renderVeh,renderBk,rbDetail,rSt,rQuote,rvOpen,rvSave,rvToggle,rvDelete,rvLink,rvUpload,rvDel,rvCover});
+Object.assign(window,{rHandover,rHandoverSave,rOpenProfile,rSaveEmail,prrAdd,prrDel,rtab,rLogout,rIcons,renderVeh,renderBk,rbDetail,rSt,rQuote,rvOpen,rvSave,rvToggle,rvDelete,rvLink,rvUpload,rvDel,rvCover});
 })();
 </script>
 
@@ -3996,6 +4051,7 @@ function watchSelf(){
   if(!hotel)return;const id=hotel.id;
   hu=db.collection('hotels').doc(id).onSnapshot(s=>{
     if(!s.exists||!hotel||hotel.id!==id)return;
+    if(s.data().showInOwnerPortal===false){alert('This hotel is no longer available in your portal. Contact KeepJourney.');sessionStorage.removeItem('hoCred');location.reload();return}
     const fresh={id,...s.data()},i=hotels.findIndex(h=>h.id===id);
     if(i>-1)hotels[i]=fresh;hotel=fresh;
     if(!dirty&&!uploading)renderForm();else apBanner();
@@ -4007,5 +4063,198 @@ if(hotel)watchSelf();
 })();
 </script>
 
+<script>
+(()=>{
+'use strict';
+let un=null,list=[],all=false;
+const card=()=>{let c=$('kjRV');if(!c){c=document.createElement('div');c.id='kjRV';c.className='card fs';$('p-hotel').appendChild(c)}return c};
+const stars=n=>'★'.repeat(Math.round(n))+'☆'.repeat(5-Math.round(n));
+function draw(){
+  if(!hotel)return;
+  const c=card(),show=all?list:list.slice(0,2);
+  const avg=list.length?(list.reduce((s,r)=>s+(Number(r.rating)||0),0)/list.length).toFixed(1):'';
+  c.innerHTML=`<div class="fh" style="cursor:default"><div class="ib c-amber">${ic('star')}</div><div class="grow"><h3>Guest reviews</h3><p>${list.length?list.length+' review'+(list.length>1?'s':'')+' · average '+avg+' / 5':'No reviews yet'}. Your replies are shown to every guest in the app.</p></div></div>
+  <div class="fb">${show.map(r=>`<div style="border:1.5px solid var(--line);background:var(--card2);border-radius:14px;padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(r.userName||'Guest')}</b><span style="color:#E0A100;font-weight:800">${stars(Number(r.rating)||0)}</span></div>
+    ${r.comment?`<div class="s" style="margin-top:6px;color:var(--mid)">${esc(r.comment)}</div>`:''}
+    <div class="asub">${esc(fd(r.createdAt))}</div>
+    ${r.reply?`<div style="margin-top:8px;background:var(--brand-l);color:var(--brand);border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:650"><b>Your reply:</b> ${esc(r.reply)}</div>`:''}
+    <div style="margin-top:8px"><button class="btn sm" onclick="kjRvReply('${esc(r.id)}')">${r.reply?'Edit reply':'Reply'}</button></div></div>`).join('')||'<p class="hint">Guests can review after a completed stay.</p>'}
+    ${list.length>2?`<button class="btn sm" onclick="kjRvAll()">${all?'Show fewer':'Show all '+list.length+' reviews'}</button>`:''}</div>`;
+}
+window.kjRvAll=()=>{all=!all;draw()};
+window.kjRvReply=async id=>{
+  const r=list.find(x=>x.id===id);if(!r)return;
+  const v=await modal(`<h3>Reply to ${esc(r.userName||'guest')}</h3><p class="msg" style="margin:4px 0 12px">${esc(r.comment||'(no comment)')}</p>
+    <textarea class="inp" id="rvT" rows="4" maxlength="300" placeholder="Thank you for staying with us…">${esc(r.reply||'')}</textarea>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="mclose({t:$('rvT').value.trim()})">Save reply</button></div>`);
+  if(!v)return;
+  try{
+    await db.collection('hotel_reviews').doc(id).update(v.t
+      ?{reply:v.t,replyAt:FV.serverTimestamp(),replyBy:'owner:'+owner.id}
+      :{reply:FV.delete(),replyAt:FV.delete(),replyBy:FV.delete()});
+    toast(v.t?'Reply saved':'Reply removed');
+  }catch(e){toast('Could not save: '+e.message,true)}
+};
+function watch(){
+  if(un){un();un=null}list=[];all=false;draw();
+  if(!hotel)return;const hid=hotel.id;
+  un=db.collection('hotel_reviews').where('hotelId','==',hid).limit(100).onSnapshot(s=>{
+    if(!hotel||hotel.id!==hid)return;
+    list=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.hidden!==true)
+      .sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+    draw();
+  },()=>{});
+}
+const _ph=window.pickHotel;
+window.pickHotel=function(){_ph.apply(this,arguments);watch()};
+if(hotel)watch();
+})();
+</script>
+<style id="kj-inform">
+.chn{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:14px 0 8px}
+.chn a,.chn button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 6px;border:1.5px solid var(--line);border-radius:14px;background:var(--card2);font-weight:750;font-size:12.5px;color:var(--ink);text-decoration:none;cursor:pointer}
+.chn a:hover,.chn button:hover{border-color:var(--brand)}
+.chn .on{border-color:var(--brand);background:var(--brand-l);color:var(--brand)}
+.chn .ico{width:22px;height:22px}
+.pvm{background:var(--card2);border:1.5px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--mid);line-height:1.6;white-space:pre-line}
+.rvc{border:1.5px solid var(--line);background:var(--card2);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.rvc .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.rvc .stars{color:#E0A100;font-weight:800;letter-spacing:1px}
+.rvc .rp{margin-top:10px;background:var(--brand-l);color:var(--brand);border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:650}
+</style>
+
+<script>
+(()=>{
+'use strict';
+const k10=s=>String(s||'').replace(/\D/g,'').slice(-10);
+const VIA={wa:'WhatsApp',call:'Phone call',sms:'SMS',other:'another way'};
+const WORD={1:'CONFIRMED',2:'NOT ACCEPTED',3:'CANCELLED',4:'COMPLETED'};
+Object.assign(I,{wa:'<path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z"/>',sms:'<path d="M4 5h16v11H9l-5 4V5z"/>'});
+
+function text(b,ns){
+  const id=String(b.bookingId||b.id).slice(-8),n=b.name||'Guest';
+  const base=`Hello ${n}, your booking at ${hotel.name} (ID ${id}) for ${fd(b.checkIn)} to ${fd(b.checkOut)}`;
+  if(ns===1)return `${base} is CONFIRMED. Room: ${b.roomName||''} x ${b.rooms||1}. Total ${rs(b.amount)}. Hotel contact: ${hotel.phone||''}. Thank you!`;
+  if(ns===2)return `${base} could not be accepted. Sorry for the trouble. Please try other dates or call us: ${hotel.phone||''}.`;
+  if(ns===3)return `${base} has been CANCELLED. ${(Number(b.advancePaid)||0)>0?'Your advance will be refunded by the hotel. ':''}Call us for any help: ${hotel.phone||''}.`;
+  return `Hello ${n}, thank you for staying at ${hotel.name}. We hope you enjoyed it. Please rate your stay in the KeepJourney app.`;
+}
+/* step 1: tell the guest. Resolves {via} or null (aborted) */
+function inform(b,ns){
+  const ph=k10(b.phone),msg=text(b,ns),enc=encodeURIComponent(msg);
+  window._infVia=null;
+  window.kjInfPick=v=>{window._infVia=v;document.querySelectorAll('.chn [data-v]').forEach(e=>e.classList.toggle('on',e.dataset.v===v));const d=$('infOk');if(d){d.disabled=false;d.textContent='Done, guest informed ('+VIA[v]+')'}};
+  return modal(`<h3>Inform the guest first</h3>
+    <p class="msg" style="margin:4px 0 12px">Tell <b>${esc(b.name||'the guest')}</b> that the booking is <b>${WORD[ns]}</b>. Use any one way below, then tap Done.</p>
+    <div class="pvm">${esc(msg)}</div>
+    <div class="chn">
+      <a data-v="wa" href="https://wa.me/91${ph}?text=${enc}" target="_blank" rel="noopener" onclick="kjInfPick('wa')">${ic('wa')}WhatsApp</a>
+      <a data-v="call" href="tel:+91${ph}" onclick="kjInfPick('call')">${ic('phone')}Call</a>
+      <a data-v="sms" href="sms:+91${ph}?body=${enc}" onclick="kjInfPick('sms')">${ic('sms')}SMS</a>
+    </div>
+    <button type="button" class="btn sm ghost" data-v="other" onclick="kjInfPick('other')">Already informed another way</button>
+    <div class="mact" style="justify-content:space-between">
+      <button class="btn sm ghost" onclick="mclose({via:'none'})">Guest not reachable</button>
+      <span style="display:flex;gap:8px"><button class="btn" onclick="mclose(null)">Back</button><button class="btn pri" id="infOk" disabled onclick="mclose({via:window._infVia})">Choose a way above</button></span></div>`);
+}
+async function stamp(id,ns,r){
+  const ok=r.via!=='none';
+  await db.collection('hotel_bookings').doc(id).update({informedStatus:ns,informedReached:ok,informedVia:ok?r.via:'',informedAt:FV.serverTimestamp(),informedBy:'owner:'+owner.id,updatedAt:FV.serverTimestamp()});
+}
+/* wrap status changes: inform first, then the normal confirm and save, then record it */
+const _set=window.setSt;
+window.setSt=async function(id,ns,collected){
+  const b=bookings.find(x=>x.id===id);
+  if(!b||isBlk(b)||isDel(b)||![1,2,3,4].includes(ns)||(ns===4&&!collected)||k10(b.phone).length!==10)return _set.apply(this,arguments);
+  const r=await inform(b,ns);if(!r)return;
+  await _set.apply(this,arguments);
+  try{const s=await db.collection('hotel_bookings').doc(id).get();if(s.exists&&Number(s.data().status)===ns){await stamp(id,ns,r);if(r.via==='none')toast('Saved. The guest was not informed yet.',true)}}catch(e){toast('Could not record the message: '+e.message,true)}
+};
+/* "Inform now" for bookings that were changed without informing */
+async function late(b){
+  const ns=Number(b.status)||0;if(![1,2,3,4].includes(ns))return;
+  const r=await inform(b,ns);if(!r)return;
+  try{await stamp(b.id,ns,r);toast(r.via==='none'?'Marked as not reached':'Guest marked as informed')}catch(e){toast(e.message,true)}
+}
+function mark(){
+  const arts=[...document.querySelectorAll('#blist article.bk')],f=filteredBookings();
+  if(!arts.length||arts.length!==f.length)return;
+  arts.forEach((a,i)=>{
+    const b=f[i],s=Number(b.status)||0,col=a.children[2];
+    if(!b||!col||isBlk(b)||isDel(b)||a.dataset.kn||![1,2,3,4].includes(s)||k10(b.phone).length!==10)return;a.dataset.kn='1';
+    if(b.informedAt&&Number(b.informedStatus)===s&&b.informedReached!==false)
+      col.insertAdjacentHTML('beforeend',`<span class="note" style="display:block;background:var(--green-l);color:var(--green)">✓ Guest informed via ${esc(VIA[b.informedVia]||'message')} · ${esc(fdt(b.informedAt))}</span>`);
+    else{
+      col.insertAdjacentHTML('beforeend',`<span class="note" style="display:block">${b.informedReached===false&&Number(b.informedStatus)===s?'Guest was not reachable':'Guest not informed yet'}</span>`);
+      const acts=a.querySelector('.acts');acts&&acts.insertAdjacentHTML('beforeend',`<button class="btn sm pri" data-inf="${esc(b.id)}">📣 Inform now</button>`);
+    }
+  });
+}
+const _rb=window.renderBookings;window.renderBookings=function(){_rb.apply(this,arguments);mark()};
+$('blist').addEventListener('click',e=>{const x=e.target.closest('[data-inf]');if(x){const b=bookings.find(y=>y.id===x.dataset.inf);if(b)late(b)}});
+})();
+</script>
+
+<script>
+(()=>{
+'use strict';
+let un=null,list=[],flt='',more=6;
+const stars=n=>'★'.repeat(Math.round(n))+'☆'.repeat(5-Math.round(n));
+/* new tab + page */
+const nb=document.createElement('button');nb.dataset.t='reviews';nb.setAttribute('onclick',"tab('reviews')");
+nb.innerHTML=ic('star')+'Reviews<span id="rvBadge" class="bdg hide">0</span>';$('tabs').appendChild(nb);
+const pg=document.createElement('section');pg.id='p-reviews';pg.className='hide';
+$('p-hotel').insertAdjacentElement('afterend',pg);
+const _tab=window.tab;
+window.tab=function(t){_tab(t);pg.classList.toggle('hide',t!=='reviews');if(t==='reviews')draw()};
+
+function draw(){
+  const noRep=list.filter(r=>!r.reply).length;
+  const b=$('rvBadge');if(b){b.textContent=noRep;b.classList.toggle('hide',!noRep)}
+  if(pg.classList.contains('hide'))return;
+  const avg=list.length?(list.reduce((s,r)=>s+(Number(r.rating)||0),0)/list.length).toFixed(1):'–';
+  const f=list.filter(r=>flt===''||(flt==='no'&&!r.reply)||(flt==='yes'&&r.reply)||(flt==='low'&&(Number(r.rating)||0)<=2));
+  const show=f.slice(0,more);
+  const chip=(k,l,n)=>`<button class="chip ${flt===k?'on':''}" onclick="kjRvF('${k}')">${l}<small>${n}</small></button>`;
+  pg.innerHTML=`<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+    <div class="st"><div class="ib c-amber">${ic('star')}</div><b>${avg}</b><small>Average rating</small></div>
+    <div class="st"><div class="ib c-sky">${ic('inbox')}</div><b>${list.length}</b><small>Total reviews</small></div>
+    <div class="st ${noRep?'alert':''}"><div class="ib c-red">${ic('help')}</div><b>${noRep}</b><small>Waiting for your reply</small></div></div>
+    <div class="chips">${chip('','All',list.length)}${chip('no','Needs reply',noRep)}${chip('yes','Replied',list.length-noRep)}${chip('low','1 to 2 stars',list.filter(r=>(Number(r.rating)||0)<=2).length)}</div>
+    ${show.length?show.map(r=>`<div class="rvc"><div class="top"><b>${esc(r.userName||'Guest')}</b><span class="stars">${stars(Number(r.rating)||0)}</span></div>
+      ${r.comment?`<div style="margin-top:6px;color:var(--mid)">${esc(r.comment)}</div>`:'<div class="hint">No written comment</div>'}
+      <div class="asub">${esc(fd(r.createdAt))}</div>
+      ${r.reply?`<div class="rp"><b>Your reply:</b> ${esc(r.reply)}</div>`:''}
+      <div style="margin-top:9px"><button class="btn sm ${r.reply?'':'pri'}" onclick="kjRvReply('${esc(r.id)}')">${r.reply?'Edit reply':'Reply'}</button></div></div>`).join('')
+      :'<div class="card empty"><div class="big">💬</div><b>No reviews here</b>Guests can review after a completed stay. Your replies are shown to every guest in the app.</div>'}
+    ${f.length>more?`<button class="btn sm" onclick="kjRvMore()">Show more (${f.length-more} left)</button>`:''}`;
+}
+window.kjRvF=k=>{flt=k;more=6;draw()};
+window.kjRvMore=()=>{more+=10;draw()};
+window.kjRvReply=async id=>{
+  const r=list.find(x=>x.id===id);if(!r)return;
+  const v=await modal(`<h3>Reply to ${esc(r.userName||'guest')}</h3><p class="msg" style="margin:4px 0 12px">${esc(r.comment||'(no comment)')}</p>
+    <textarea class="inp" id="rvT" rows="4" maxlength="300" placeholder="Thank you for staying with us…">${esc(r.reply||'')}</textarea>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="mclose({t:$('rvT').value.trim()})">Save reply</button></div>`);
+  if(!v)return;
+  try{
+    await db.collection('hotel_reviews').doc(id).update(v.t?{reply:v.t,replyAt:FV.serverTimestamp(),replyBy:'owner:'+owner.id}:{reply:FV.delete(),replyAt:FV.delete(),replyBy:FV.delete()});
+    toast(v.t?'Reply saved':'Reply removed');
+  }catch(e){toast('Could not save: '+e.message,true)}
+};
+function watch(){
+  if(un){un();un=null}list=[];flt='';more=6;draw();
+  if(!hotel)return;const hid=hotel.id;
+  un=db.collection('hotel_reviews').where('hotelId','==',hid).limit(200).onSnapshot(s=>{
+    if(!hotel||hotel.id!==hid)return;
+    list=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.hidden!==true).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+    draw();
+  },()=>{});
+}
+const _ph=window.pickHotel;window.pickHotel=function(){_ph.apply(this,arguments);watch()};
+if(hotel)watch();
+})();
+</script>
 </body>
 </html>
