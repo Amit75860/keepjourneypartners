@@ -4256,5 +4256,596 @@ const _ph=window.pickHotel;window.pickHotel=function(){_ph.apply(this,arguments)
 if(hotel)watch();
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+  KEEPJOURNEY RENTAL PRO ADD-ON
+  Paste this whole file just before the LAST </body> tag of your page
+  (the very bottom, NOT the one inside the invoice code).
+
+  Rental: receipt, manual status change, inform customer, notification
+  records, partner alerts, payments, extra charges, deposit, refunds,
+  walk-in booking, customer notes, bin, schedule, reports, Excel.
+  Hotel: also writes a notification record when the owner changes status.
+
+  Firestore collections used (allow them in your rules):
+  app_notifications, rental_guests, rental_bin
+═══════════════════════════════════════════════════════════════ -->
+<style id="kj-rpro">
+#rapp .rx-meta{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px}
+#rapp .rx-meta .note{margin:0}
+#rapp .rx-hidden{display:none!important}
+#rapp .rx-binned{opacity:.65}
+.rx-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.rx-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;flex-wrap:wrap}
+.rx-row:last-child{border-bottom:none}
+.rx-row small{display:block;color:var(--soft);font-weight:600}
+.rx-box{padding:18px 20px}
+.rx-box h3{font-size:15px;margin-bottom:8px}
+.rx-ch{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:14px 0 8px}
+.rx-ch a{display:block;text-align:center;padding:13px 6px;border:1.5px solid var(--line);border-radius:14px;background:var(--card2);font-weight:750;font-size:12.5px;color:var(--ink);text-decoration:none}
+.rx-ch a.on,.rx-other.on{border-color:var(--brand);background:var(--brand-l);color:var(--brand)}
+.rx-msg{background:var(--card2);border:1.5px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.6;white-space:pre-line}
+.rx-sw{overflow-x:auto;padding:0 18px 16px}
+.rx-sc{min-width:760px;display:grid;grid-template-columns:150px repeat(14,1fr);font-size:11.5px;text-align:center}
+.rx-sc>div{padding:7px 2px;border-bottom:1px solid var(--line)}
+.rx-sc>div.n{text-align:left;font-weight:750}
+.rx-cell{border-radius:7px;font-weight:750;padding:5px 0;background:var(--card2);color:var(--soft)}
+.rx-cell.busy{background:var(--amber-l);color:var(--amber)}
+.rx-cell.full{background:var(--red-l);color:var(--red)}
+body.priv #rapp .rx-money{filter:blur(7px)}
+</style>
+
+<script>
+(()=>{
+'use strict';
+const NAME={0:'Requested',1:'Confirmed',2:'Completed',3:'Rejected',4:'Cancelled'};
+const VIA={wa:'WhatsApp',call:'Phone call',sms:'SMS',other:'another way'};
+const TS=firebase.firestore.Timestamp;
+const num=v=>Number(v)||0;
+const st=b=>num(b.status);
+const k10=s=>String(s||'').replace(/\D/g,'').slice(-10);
+const money=(b,n)=>(b.currency||'₹')+num(n).toLocaleString('en-IN');
+const when=t=>t?fdt(t):'—';
+const dt=t=>{const d=t?toD(t):null;return d&&!isNaN(d)?d:null};
+const extrasOf=b=>Array.isArray(b.extras)?b.extras:[];
+const extraSum=b=>extrasOf(b).reduce((s,x)=>s+num(x.a),0);
+const baseOf=b=>b.isQuoteRequest?num(b.quotedAmount):num(b.baseTotal!=null?b.baseTotal:b.total);
+const grand=b=>baseOf(b)+extraSum(b);
+const noQuote=b=>b.isQuoteRequest===true&&b.quotedAmount==null;
+const payList=b=>{
+  if(Array.isArray(b.payments))return b.payments;
+  if(num(b.paidAmount)>0)return[{a:num(b.paidAmount),m:'Earlier payment',t:0}];
+  if(num(b.advancePaid)>0)return[{a:num(b.advancePaid),m:'Advance',t:0}];
+  if(b.paymentStatus==='paid')return[{a:grand(b),m:'Marked paid in app',t:0}];
+  return[];
+};
+const paidOf=b=>payList(b).reduce((s,x)=>s+num(x.a),0);
+const balOf=b=>Math.max(0,grand(b)-paidOf(b));
+const showErr=(id,m)=>{const e=$(id);if(e){e.textContent=m;e.classList.remove('hide')}};
+const val=id=>$(id).value.trim();
+
+/* ═══ SHARED: notification record ═══
+   One document per status change. The fixed ID stops duplicates.
+   A record alone does not send a push: your app or a Cloud Function must read it. */
+let notifyWarned=false;
+async function pushRecord(kind,id,b,by){
+  const s=num(b.status);
+  const label=kind==='hotel'?({0:'Requested',1:'Confirmed',2:'Rejected',3:'Cancelled',4:'Completed'})[s]:NAME[s];
+  const what=kind==='hotel'?(b.roomName||'your room'):(b.itemName||'your rental');
+  const stamp=b.updatedAt&&b.updatedAt.toMillis?b.updatedAt.toMillis():Date.now();
+  try{
+    await db.collection('app_notifications').doc([kind,id,s,stamp].join('_')).set({
+      type:kind+'_booking_status',bookingDocId:id,status:s,
+      userId:b.userId||b.uid||'',userPhone:b.userPhone||b.phone||'',userEmail:b.userEmail||b.email||'',
+      title:'Booking '+label,body:`Your booking for ${what} is now ${label}.`,
+      read:false,delivered:false,createdBy:by,createdAt:FV.serverTimestamp()
+    });
+  }catch(e){
+    if(!notifyWarned){notifyWarned=true;toast('Status saved, but the notification record failed: '+e.message,true)}
+  }
+}
+
+/* ═══ RENTAL STATE ═══ */
+let me=null,items=[],bks=[],notes={},bin={},showBin=false,unsubs=[],bkSubs=[],maps={},itemKey='',starting=false,repDays=30;
+const by=()=>'rental-owner:'+me.id;
+const find=id=>bks.find(b=>b.id===id);
+const itemOf=b=>items.find(i=>i.id===b.itemId);
+
+async function boot(){
+  if(me||starting)return;
+  let c=null;try{c=JSON.parse(sessionStorage.getItem('roCred')||'null')}catch{}
+  const app=$('rapp');
+  if(!c||!app||app.classList.contains('hide'))return;
+  starting=true;
+  try{
+    const d=await db.collection('rental_owners').doc(c.id).get();
+    if(!d.exists||d.data().isBlocked)return;
+    me={id:c.id,...d.data()};
+    unsubs.push(db.collection('rental_items').where('ownerId','==',me.id).onSnapshot(s=>{
+      items=s.docs.map(x=>({id:x.id,...x.data()})).filter(x=>x.showInOwnerPortal!==false);
+      const key=items.map(i=>i.id).sort().join();
+      if(key!==itemKey){itemKey=key;watchBk()}
+      refresh();
+    },e=>toast(e.message,true)));
+    unsubs.push(db.collection('rental_guests').where('ownerId','==',me.id).onSnapshot(s=>{
+      notes={};s.docs.forEach(x=>{notes[x.data().phone]=x.data().note||''});refresh();
+    },()=>{}));
+    unsubs.push(db.collection('rental_bin').doc(me.id).onSnapshot(s=>{
+      bin=(s.exists&&s.data().items)||{};refresh();
+    },()=>{}));
+  }catch(e){toast('Rental tools could not start: '+e.message,true)}
+  finally{starting=false}
+}
+function watchBk(){
+  bkSubs.forEach(f=>f());bkSubs=[];maps={};bks=[];
+  const ids=items.map(i=>i.id);
+  for(let i=0,c=0;i<ids.length;i+=10,c++){
+    let first=true;
+    bkSubs.push(db.collection('rental_bookings').where('itemId','in',ids.slice(i,i+10)).onSnapshot(s=>{
+      if(!first)s.docChanges().forEach(ch=>{
+        const d=ch.doc.data(),old=(maps[c]||[]).find(x=>x.id===ch.doc.id);
+        if(ch.type==='added'&&num(d.status)===0&&d.source!=='offline')
+          desktop('New rental request',`${d.userName||'Customer'} · ${d.itemName||''}`,ch.doc.id);
+        if(ch.type==='modified'&&old&&st(old)!==4&&num(d.status)===4&&d.cancelledBy!=='partner'){
+          toast(`Booking cancelled: ${d.userName||'Customer'} · ${d.itemName||''}`,true);
+          if(alerts.sound)beep();
+          desktop('Rental booking cancelled',`${d.userName||'Customer'} · ${d.itemName||''}`,ch.doc.id);
+        }
+      });
+      first=false;
+      maps[c]=s.docs.map(x=>({id:x.id,...x.data()}));
+      bks=[].concat(...Object.values(maps));
+      refresh();
+    },e=>toast(e.message,true)));
+  }
+}
+function desktop(title,body,tag){
+  if(!alerts.desktop||!('Notification'in window)||Notification.permission!=='granted')return;
+  try{const n=new Notification(title,{body,tag});n.onclick=()=>{window.focus();window.rtab('bk');n.close()}}catch{}
+}
+
+/* every booking write goes through this: re-reads the doc and checks ownership */
+async function edit(id,fn){
+  const ref=db.collection('rental_bookings').doc(id);
+  await db.runTransaction(async tx=>{
+    const s=await tx.get(ref);if(!s.exists)throw new Error('This booking no longer exists.');
+    const d=s.data();
+    if(!items.some(i=>i.id===d.itemId))throw new Error('This booking is not for one of your vehicles.');
+    const u=fn(d);
+    tx.update(ref,{...u,updatedAt:FV.serverTimestamp()});
+  });
+}
+
+/* ═══ STATUS CHANGE ═══ */
+function clash(b){
+  const it=itemOf(b),a=dt(b.startDateTime),z=dt(b.endDateTime);
+  if(!it||typeof it.stock!=='number'||!a||!z)return'';
+  const used=bks.filter(x=>x.id!==b.id&&x.itemId===b.itemId&&st(x)===1&&dt(x.startDateTime)<z&&dt(x.endDateTime)>a)
+    .reduce((s,x)=>s+(num(x.quantity)||1),0);
+  return used+(num(b.quantity)||1)>it.stock?`${used} of ${it.stock} are already confirmed for overlapping times.`:'';
+}
+async function changeStatus(id,to){
+  const b=find(id);if(!b){toast('Still loading. Try again.',true);return}
+  const from=st(b);if(from===to)return;
+  if(b.handoverVerifiedAt&&![1,2].includes(to)){toast('The vehicle is already handed over. Only Confirmed or Completed are possible.',true);return}
+  if(to===2&&b.handoverOtp&&!b.handoverVerifiedAt){toast('Verify the handover OTP before completing.',true);return}
+  if(to===2&&noQuote(b)){toast('Set the quote amount before completing.',true);return}
+  const bal=balOf(b),warn=to===1?clash(b):'',needReason=to===3||to===4;
+  const v=await modal(`<h3>${NAME[from]} → ${NAME[to]}</h3>
+    <p class="msg" style="margin:4px 0 12px">${esc(b.userName||'Customer')} · ${esc(b.itemName||'')}</p>
+    ${warn?`<p class="err">Possible double booking: ${esc(warn)}</p>`:''}
+    ${needReason?'<div class="fg"><label class="l" for="rxR">Reason (the customer may see this)</label><input class="inp" id="rxR" maxlength="120"/></div>':''}
+    ${to===2&&bal>0?`<div class="fg"><label class="l" for="rxM">Balance ${esc(money(b,bal))} collected by</label><select class="inp" id="rxM"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank transfer</option></select></div>
+      <label class="chk"><input type="checkbox" onchange="$('rxOk').disabled=!this.checked"/><span>I have collected the balance and the vehicle is back.</span></label>`:''}
+    <div class="mact"><button class="btn" onclick="mclose(null)">Keep as is</button>
+    <button class="btn pri" id="rxOk" ${to===2&&bal>0?'disabled':''} onclick="mclose({r:$('rxR')?$('rxR').value.trim():'',m:$('rxM')?$('rxM').value:''})">Change status</button></div>`);
+  if(!v)return;
+  try{
+    await edit(id,d=>{
+      if(num(d.status)!==from)throw new Error('This booking was already changed. Try again.');
+      if(d.handoverVerifiedAt&&![1,2].includes(to))throw new Error('The vehicle is already handed over.');
+      if(to===2&&d.handoverOtp&&!d.handoverVerifiedAt)throw new Error('Verify the handover OTP first.');
+      const u={status:to,handledBy:by(),statusHistory:[...(d.statusHistory||[]),{from,to,t:Date.now(),by:me.id,reason:v.r}]};
+      let pays=payList(d).slice();
+      if(from===2){
+        pays=pays.filter(p=>!p.auto);
+        Object.assign(u,{payments:pays,paidAmount:pays.reduce((s,p)=>s+num(p.a),0),advancePaid:pays.reduce((s,p)=>s+num(p.a),0),paymentStatus:'pay_at_pickup',amountCollected:false,collectedAt:FV.delete(),collectedBy:FV.delete()});
+      }
+      if(to===2){
+        const due=balOf(d);
+        if(due>0)pays.push({a:due,m:v.m||'Cash',r:'Collected at return',t:Date.now(),auto:true});
+        Object.assign(u,{payments:pays,paidAmount:pays.reduce((s,p)=>s+num(p.a),0),advancePaid:pays.reduce((s,p)=>s+num(p.a),0),paymentStatus:'paid',amountCollected:true,collectedAt:FV.serverTimestamp(),collectedBy:by()});
+      }
+      if(needReason){
+        u.cancelReason=v.r;
+        if(to===3)u.rejectedAt=FV.serverTimestamp();
+        if(paidOf(d)>0&&!d.refundPaid)u.refundDue=true;
+        if(to===4){u.cancelledBy='partner';u.cancelledAt=FV.serverTimestamp()}
+      }else if(from===3||from===4){
+        Object.assign(u,{refundDue:false,cancelReason:FV.delete(),cancelledBy:FV.delete(),cancelledAt:FV.delete(),rejectedAt:FV.delete()});
+      }
+      return u;
+    });
+  }catch(e){toast(e.message,true);return}
+  toast('Status changed to '+NAME[to]);
+  await afterChange(id);
+}
+async function afterChange(id){
+  try{
+    const s=await db.collection('rental_bookings').doc(id).get();if(!s.exists)return;
+    const b={id,...s.data()};
+    await pushRecord('rental',id,b,by());
+    await inform(b);
+  }catch(e){toast(e.message,true)}
+}
+function statusMenu(id){
+  const b=find(id);if(!b)return;
+  const cur=st(b);
+  const hist=(b.statusHistory||[]).slice().reverse();
+  modal(`<h3>Change status</h3><p class="msg" style="margin:4px 0 12px">Now: <b>${NAME[cur]}</b></p>
+    ${[0,1,2,3,4].filter(s=>s!==cur).map(s=>{
+      const no=(b.handoverVerifiedAt&&![1,2].includes(s))||(s===2&&((b.handoverOtp&&!b.handoverVerifiedAt)||noQuote(b)));
+      return`<button class="btn" style="width:100%;margin-bottom:7px" ${no?'disabled':''} onclick="mclose(true);kjRx.set('${esc(id)}',${s})">${NAME[s]}</button>`}).join('')}
+    <p class="hint">Greyed-out choices need the handover OTP or a quote first, or the vehicle is already handed over.</p>
+    ${hist.length?`<h3 style="font-size:14px;margin-top:14px">History</h3>${hist.map(h=>`<div class="rx-row"><span>${NAME[h.from]} → ${NAME[h.to]}<small>${esc(fdt(new Date(h.t)))}${h.reason?' · '+esc(h.reason):''}</small></span></div>`).join('')}`:''}
+    <div class="mact"><button class="btn" onclick="mclose(null)">Close</button></div>`);
+}
+
+/* ═══ INFORM CUSTOMER ═══ */
+function message(b){
+  const s=st(b);
+  return `Hello ${b.userName||'Customer'}, your rental booking (ID ${String(b.id).slice(-8)}) is now ${NAME[s].toUpperCase()}.
+Vehicle: ${b.itemName||''} x ${b.quantity||1}
+Start: ${when(b.startDateTime)}
+Pickup: ${b.pickupPoint||'-'}
+${noQuote(b)?'Price: quote pending':`Total: ${money(b,grand(b))} | Paid: ${money(b,paidOf(b))} | Balance: ${money(b,balOf(b))}`}${b.cancelReason&&(s===3||s===4)?'\nReason: '+b.cancelReason:''}${itemOf(b)&&itemOf(b).phone?'\nContact: '+itemOf(b).phone:''}
+- ${me.name||'KeepJourney rental partner'}`;
+}
+async function inform(b){
+  const ph=k10(b.userPhone);if(ph.length!==10)return;
+  const text=message(b),enc=encodeURIComponent(text);
+  let via='';
+  window.kjRxVia=v=>{via=v;document.querySelectorAll('[data-rxv]').forEach(e=>e.classList.toggle('on',e.dataset.rxv===v));$('rxIn').disabled=false};
+  window.kjRxDone=()=>mclose({via});
+  const r=await modal(`<h3>Inform the customer</h3><p class="msg" style="margin:4px 0 12px">The status is saved. Now send ${esc(b.userName||'the customer')} this message.</p>
+    <div class="rx-msg">${esc(text)}</div>
+    <div class="rx-ch">
+      <a data-rxv="wa" href="https://wa.me/91${ph}?text=${enc}" target="_blank" rel="noopener" onclick="kjRxVia('wa')">💬 WhatsApp</a>
+      <a data-rxv="call" href="tel:+91${ph}" onclick="kjRxVia('call')">📞 Call</a>
+      <a data-rxv="sms" href="sms:+91${ph}?body=${enc}" onclick="kjRxVia('sms')">✉️ SMS</a></div>
+    <button class="btn sm rx-other" data-rxv="other" onclick="kjRxVia('other')">Informed another way</button>
+    <div class="mact"><button class="btn" onclick="mclose({via:'none'})">Not reachable</button><button class="btn" onclick="mclose(null)">Later</button><button class="btn pri" id="rxIn" disabled onclick="kjRxDone()">Done</button></div>`);
+  if(!r)return;
+  const ok=r.via!=='none';
+  try{await edit(b.id,()=>({informedStatus:st(b),informedReached:ok,informedVia:ok?r.via:'',informedAt:FV.serverTimestamp(),informedBy:by()}))}
+  catch(e){toast(e.message,true)}
+}
+
+/* ═══ RECEIPT ═══ */
+function receipt(id){
+  const b=find(id);if(!b)return;
+  const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print the receipt.',true);return}
+  const it=itemOf(b)||{},s=st(b),bal=balOf(b),no=esc(String(b.id).slice(-8));
+  const label=s===3||s===4?NAME[s].toUpperCase():noQuote(b)?'QUOTE PENDING':bal?'BALANCE DUE':'PAID';
+  const row=(l,v)=>`<tr><td>${esc(l)}</td><td>${esc(v)}</td></tr>`;
+  const pays=payList(b);
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Receipt R-${no}</title><style>
+  @page{size:A4;margin:14mm}body{font-family:"Segoe UI",Arial,sans-serif;color:#10222F;max-width:760px;margin:auto;padding:24px;font-size:14px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .top{display:flex;justify-content:space-between;gap:16px;border-bottom:3px solid #0E9F7E;padding-bottom:14px}h1{margin:0;font-size:23px}h2{font-size:14px;margin:20px 0 4px}
+  .s{color:#4B6072;font-size:13px}.r{text-align:right}.b{display:inline-block;border:2px solid #0A7A61;border-radius:8px;padding:3px 12px;font-weight:800;margin-top:8px}
+  table{width:100%;border-collapse:collapse}td{padding:7px 4px;border-bottom:1px solid #E2E9EF}td+td{text-align:right}
+  .sign{display:flex;justify-content:space-between;margin-top:56px;font-size:12px}.sign div{border-top:1px solid #8497A7;padding-top:6px;min-width:180px;text-align:center}</style></head><body>
+  <div class="top"><div><h1>${esc(me.name||me.id)}</h1><div class="s">${esc(it.address||'')}${it.phone?'<br>+91 '+esc(k10(it.phone)):''}</div></div>
+  <div class="r"><b>RENTAL RECEIPT</b><div class="s">No: R-${no}<br>Printed: ${esc(new Date().toLocaleString('en-IN'))}</div><span class="b">${label}</span></div></div>
+  <h2>Customer</h2><table>${row('Name',b.userName||'—')}${row('Phone',b.userPhone||'—')}</table>
+  <h2>Rental</h2><table>${row('Vehicle',(b.itemName||'')+' × '+(b.quantity||1))}${row('Status',NAME[s])}${row('Start',when(b.startDateTime))}${row('End',when(b.endDateTime))}${row('Pickup',b.pickupPoint||'—')}${b.handoverVerifiedAt?row('Handover (OTP verified)',when(b.handoverVerifiedAt)):''}</table>
+  <h2>Charges</h2><table>${row('Rental charge',noQuote(b)?'Quote pending':money(b,baseOf(b)))}${extrasOf(b).map(x=>row(x.l,money(b,x.a))).join('')}${row('Total',noQuote(b)?'Quote pending':money(b,grand(b)))}</table>
+  <h2>Payments</h2><table>${pays.length?pays.map(p=>row((p.m||'Payment')+(p.r?' · '+p.r:'')+(p.t?' · '+fdt(new Date(p.t)):''),money(b,p.a))).join(''):row('No payment recorded','—')}${row('Total paid',money(b,paidOf(b)))}${row('Balance',money(b,bal))}${b.refundPaid?row('Refunded',money(b,b.refundAmount)):''}</table>
+  <h2>Security deposit</h2><table>${row('Deposit amount',money(b,b.deposit))}${row('Collected',money(b,b.depositCollected))}${row('Returned',money(b,b.depositReturned))}${row('Deducted',money(b,b.depositDeducted))}${b.depositNote?row('Note',b.depositNote):''}</table>
+  <div class="sign"><div>Customer signature</div><div>Authorised signature</div></div></body></html>`);
+  w.document.close();setTimeout(()=>{try{w.focus();w.print()}catch{}},400);
+}
+
+/* ═══ PAYMENTS, CHARGES, DEPOSIT, REFUND ═══ */
+function payments(id){
+  const b=find(id);if(!b)return;
+  const p=payList(b);
+  modal(`<h3>Payments</h3><p class="msg">Total ${esc(money(b,grand(b)))} · Paid ${esc(money(b,paidOf(b)))} · Balance ${esc(money(b,balOf(b)))}</p>
+    ${p.map((x,i)=>`<div class="rx-row"><span>${esc(x.m||'Payment')}${x.r?' · '+esc(x.r):''}<small>${x.t?esc(fdt(new Date(x.t))):''}</small></span><span><b>${esc(money(b,x.a))}</b> <button class="btn sm red" onclick="kjRx.payDel('${esc(id)}',${i})">×</button></span></div>`).join('')||'<p class="hint">No payment yet.</p>'}
+    <div class="row" style="margin-top:12px"><div class="fg"><label class="l" for="rxA">New payment</label><input class="inp" id="rxA" type="number" min="1" value="${balOf(b)||''}"/></div>
+    <div class="fg"><label class="l" for="rxPm">Method</label><select class="inp" id="rxPm"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank transfer</option></select></div></div>
+    <label class="l" for="rxRef">Reference (optional)</label><input class="inp" id="rxRef" maxlength="60"/>
+    <p id="rxE" class="err hide" style="margin-top:10px"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Close</button><button class="btn pri" onclick="kjRx.payAdd('${esc(id)}')">Add payment</button></div>`);
+}
+const savePays=(id,fn)=>edit(id,d=>{
+  const p=fn(payList(d).slice()),sum=p.reduce((s,x)=>s+num(x.a),0);
+  if(sum>grand(d))throw new Error('Total paid cannot be more than the booking total.');
+  return{payments:p,paidAmount:sum,advancePaid:sum,paymentStatus:sum>0&&sum>=grand(d)?'paid':sum>0?'part':'pay_at_pickup'};
+});
+async function payAdd(id){
+  const a=parseFloat(val('rxA'));if(!(a>0))return showErr('rxE','Enter an amount.');
+  const entry={a,m:$('rxPm').value,r:val('rxRef'),t:Date.now()};
+  try{await savePays(id,p=>[...p,entry]);mclose(true);toast('Payment added')}catch(e){showErr('rxE',e.message)}
+}
+async function payDel(id,i){
+  if(!confirm('Remove this payment entry?'))return;
+  try{await savePays(id,p=>p.filter((_,j)=>j!==i));mclose(true);toast('Payment removed')}catch(e){toast(e.message,true)}
+}
+function charges(id){
+  const b=find(id);if(!b)return;
+  modal(`<h3>Extra charges</h3><p class="msg">Rental charge ${esc(money(b,baseOf(b)))} · Total ${esc(money(b,grand(b)))}</p>
+    ${extrasOf(b).map((x,i)=>`<div class="rx-row"><span>${esc(x.l)}</span><span><b>${esc(money(b,x.a))}</b> <button class="btn sm red" onclick="kjRx.chDel('${esc(id)}',${i})">×</button></span></div>`).join('')||'<p class="hint">No extra charges.</p>'}
+    <div class="row" style="margin-top:12px"><div class="fg"><label class="l" for="rxCl">Charge for</label><input class="inp" id="rxCl" list="rxCls" maxlength="40"/><datalist id="rxCls"><option>Late return</option><option>Fuel</option><option>Damage</option><option>Extra helmet</option><option>Cleaning</option><option>Delivery</option></datalist></div>
+    <div class="fg"><label class="l" for="rxCa">Amount</label><input class="inp" id="rxCa" type="number" min="1"/></div></div>
+    <p id="rxE" class="err hide"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Close</button><button class="btn pri" onclick="kjRx.chAdd('${esc(id)}')">Add charge</button></div>`);
+}
+const saveCharges=(id,fn)=>edit(id,d=>{
+  const base=baseOf(d),ex=fn(extrasOf(d).slice()),total=base+ex.reduce((s,x)=>s+num(x.a),0);
+  const paid=paidOf(d);
+  if(!noQuote(d)&&total<paid)throw new Error('The customer has paid more than this total. Remove a payment first.');
+  const u={extras:ex,payments:payList(d),paidAmount:paid,advancePaid:paid,paymentStatus:paid>0?(paid>=total?'paid':'part'):'pay_at_pickup'};
+  if(!d.isQuoteRequest){u.baseTotal=base;u.total=total}
+  return u;
+});
+async function chAdd(id){
+  const l=val('rxCl'),a=parseFloat(val('rxCa'));
+  if(!l||!(a>0))return showErr('rxE','Enter the reason and amount.');
+  try{await saveCharges(id,x=>[...x,{l,a,t:Date.now()}]);mclose(true);toast('Charge added')}catch(e){showErr('rxE',e.message)}
+}
+async function chDel(id,i){
+  if(!confirm('Remove this charge?'))return;
+  try{await saveCharges(id,x=>x.filter((_,j)=>j!==i));mclose(true);toast('Charge removed')}catch(e){toast(e.message,true)}
+}
+async function deposit(id){
+  const b=find(id);if(!b)return;
+  const f=(i,l,v)=>`<div class="fg"><label class="l" for="${i}">${l}</label><input class="inp" id="${i}" type="number" min="0" value="${num(v)}"/></div>`;
+  const v=await modal(`<h3>Security deposit</h3><p class="msg" style="margin-bottom:12px">Listed deposit: ${esc(money(b,b.deposit))}. It is kept separate from rental payments.</p>
+    ${f('rxDc','Collected',b.depositCollected)}${f('rxDr','Returned to customer',b.depositReturned)}${f('rxDd','Deducted (damage, late fee)',b.depositDeducted)}
+    <label class="l" for="rxDn">Note</label><input class="inp" id="rxDn" maxlength="120" value="${esc(b.depositNote||'')}"/><p id="rxE" class="err hide" style="margin-top:10px"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="const c=+$('rxDc').value,r=+$('rxDr').value,d=+$('rxDd').value;if(c<0||r<0||d<0||r+d>c){$('rxE').textContent='Returned plus deducted cannot be more than collected.';$('rxE').classList.remove('hide')}else mclose({depositCollected:c,depositReturned:r,depositDeducted:d,depositNote:$('rxDn').value.trim()})">Save</button></div>`);
+  if(!v)return;
+  try{await edit(id,()=>v);toast('Deposit saved')}catch(e){toast(e.message,true)}
+}
+async function refund(id){
+  const b=find(id);if(!b)return;
+  const max=paidOf(b);
+  const v=await modal(`<h3>Mark refund as paid</h3><p class="msg" style="margin-bottom:12px">Customer paid ${esc(money(b,max))}.</p>
+    <div class="fg"><label class="l" for="rxA">Amount refunded</label><input class="inp" id="rxA" type="number" min="0" max="${max}" value="${max}"/></div>
+    <label class="l" for="rxRef">UPI reference or note</label><input class="inp" id="rxRef" maxlength="80"/><p id="rxE" class="err hide" style="margin-top:10px"></p>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="const a=parseFloat($('rxA').value);if(!(a>=0&&a<=${max})){$('rxE').textContent='Enter a valid amount.';$('rxE').classList.remove('hide')}else mclose({a,r:$('rxRef').value.trim()})">Save</button></div>`);
+  if(!v)return;
+  try{await edit(id,()=>({refundDue:false,refundPaid:true,refundAmount:v.a,refundRef:v.r,refundPaidAt:FV.serverTimestamp(),refundBy:by()}));toast('Refund recorded')}catch(e){toast(e.message,true)}
+}
+
+/* ═══ NOTES AND BIN ═══ */
+async function note(id){
+  const b=find(id);if(!b)return;
+  const ph=k10(b.userPhone);
+  const v=await modal(`<h3>Private note</h3><p class="msg" style="margin-bottom:12px">Only you see this.</p><textarea class="inp" id="rxN" maxlength="300" rows="4">${esc(notes[ph]||'')}</textarea>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="mclose({t:$('rxN').value.trim()})">Save note</button></div>`);
+  if(!v)return;
+  const ref=db.collection('rental_guests').doc(me.id+'_'+ph);
+  try{if(v.t)await ref.set({ownerId:me.id,phone:ph,note:v.t,updatedAt:FV.serverTimestamp()});else await ref.delete();toast('Note saved')}catch(e){toast(e.message,true)}
+}
+async function binSet(id,on){
+  try{await db.collection('rental_bin').doc(me.id).set({ownerId:me.id,items:{[id]:on}},{merge:true});toast(on?'Moved to the Bin':'Restored')}catch(e){toast(e.message,true)}
+}
+
+/* ═══ WALK-IN / PHONE BOOKING ═══ */
+function offline(){
+  if(!me){toast('Still loading. Try again.',true);return}
+  const ok=items.filter(i=>i.approvalStatus!=='pending'&&i.approvalStatus!=='rejected');
+  if(!ok.length){toast('You need an approved vehicle first.',true);return}
+  const f=(i,l,t,x='')=>`<div class="fg"><label class="l" for="${i}">${l}</label><input class="inp" id="${i}" type="${t}" ${x}/></div>`;
+  modal(`<h3>Walk-in or phone booking</h3>
+    <div class="fg"><label class="l" for="rxIt">Vehicle</label><select class="inp" id="rxIt">${ok.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('')}</select></div>
+    <div class="row">${f('rxNm','Customer name','text','maxlength="60"')}${f('rxPh','Mobile (optional)','tel','maxlength="14"')}</div>
+    <div class="row">${f('rxS','Start','datetime-local')}${f('rxEn','End','datetime-local')}</div>
+    <div class="row">${f('rxQ','Quantity','number','min="1" value="1"')}${f('rxT','Total amount (₹)','number','min="0"')}</div>
+    <div class="row">${f('rxAd','Advance received (₹)','number','min="0" value="0"')}${f('rxPu','Pickup spot','text','maxlength="80"')}</div>
+    <p id="rxE" class="err hide"></p>
+    <div class="mact stick"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" id="rxSave" onclick="kjRx.offSave()">Save booking</button></div>`,'wide');
+}
+async function offSave(){
+  const it=items.find(i=>i.id===$('rxIt').value),a=new Date(val('rxS')),z=new Date(val('rxEn'));
+  const q=parseInt(val('rxQ'),10),total=parseFloat(val('rxT')),adv=parseFloat(val('rxAd'))||0,ph=k10(val('rxPh'));
+  if(!it||isNaN(a)||isNaN(z)||z<=a)return showErr('rxE','Choose a start and a later end time.');
+  if(!(q>=1)||!(total>=0))return showErr('rxE','Enter the quantity and total amount.');
+  if(adv<0||adv>total)return showErr('rxE','Advance cannot be more than the total.');
+  if(val('rxPh')&&ph.length!==10)return showErr('rxE','Enter a 10 digit mobile number, or leave it blank.');
+  const warn=clash({id:'',itemId:it.id,quantity:q,startDateTime:a,endDateTime:z});
+  if(warn&&!confirm('Possible double booking: '+warn+' Save anyway?'))return;
+  const hours=Math.ceil((z-a)/36e5),unit=hours<24?'hour':'day';
+  const ts=FV.serverTimestamp(),btn=$('rxSave');btn.disabled=true;
+  try{
+    await db.collection('rental_bookings').add({itemId:it.id,itemName:it.name||'',userName:val('rxNm')||'Walk-in customer',userPhone:ph?'+91'+ph:'',
+      quantity:q,startDateTime:TS.fromDate(a),endDateTime:TS.fromDate(z),duration:unit==='hour'?hours:Math.ceil(hours/24),durationUnit:unit,
+      total,currency:'₹',deposit:num(it.deposit),pickupPoint:val('rxPu'),status:1,source:'offline',
+      payments:adv?[{a:adv,m:'Advance',t:Date.now()}]:[],paidAmount:adv,advancePaid:adv,paymentStatus:adv>0?(adv>=total?'paid':'part'):'pay_at_pickup',createdAt:ts,updatedAt:ts,createdBy:by(),handledBy:by()});
+    mclose(true);toast('Booking added');
+  }catch(e){btn.disabled=false;showErr('rxE',e.message)}
+}
+
+/* ═══ EXCEL ═══ */
+function excelModal(){
+  modal(`<h3>Download Excel statement</h3><p class="msg" style="margin-bottom:12px">Filter by start date. Leave blank for all.</p>
+    <div class="row"><div class="fg"><label class="l" for="rxF">From</label><input class="inp" id="rxF" type="date"/></div><div class="fg"><label class="l" for="rxTo">To</label><input class="inp" id="rxTo" type="date"/></div></div>
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="kjRx.excel()">Download</button></div>`);
+}
+function excel(){
+  if(!xlReady())return;
+  const f=$('rxF').value,t=$('rxTo').value;
+  const list=bks.filter(b=>{const d=dt(b.startDateTime),k=d?dayKey(d):'';return(!f||k>=f)&&(!t||(k&&k<=t))})
+    .sort((a,b)=>(dt(b.startDateTime)||0)-(dt(a.startDateTime)||0));
+  if(!list.length){toast('No bookings for these dates.',true);return}
+  const rows=list.map(b=>({'Booking ID':safe(b.id),'Customer':safe(b.userName||''),'Phone':safe(String(b.userPhone||'')),'Vehicle':safe(b.itemName||''),'Quantity':num(b.quantity)||1,
+    'Start':when(b.startDateTime),'End':when(b.endDateTime),'Status':NAME[st(b)]||'','Source':b.source==='offline'?'Walk-in / phone':'App',
+    'Total':grand(b),'Extra charges':extraSum(b),'Paid':paidOf(b),'Balance':balOf(b),'Deposit collected':num(b.depositCollected),'Deposit returned':num(b.depositReturned),'Deposit deducted':num(b.depositDeducted),'Refunded':num(b.refundAmount)}));
+  const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=fitCols(rows);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Statement');
+  XLSX.writeFile(wb,`KeepJourney_rental_${slug(me.name||me.id)}_${todayStr()}.xlsx`);mclose(true);
+}
+
+/* ═══ SCHEDULE AND REPORTS TABS ═══ */
+function schedule(){
+  const box=$('r-sched');if(!box||box.classList.contains('hide'))return;
+  const t0=sod(new Date()),days=[...Array(14)].map((_,i)=>new Date(t0.getFullYear(),t0.getMonth(),t0.getDate()+i));
+  box.innerHTML=`<div class="card" style="padding:0"><div class="rx-box"><h3>Next 14 days</h3><p class="hint">Confirmed bookings per day. With a stock count, red means all are booked.</p></div><div class="rx-sw"><div class="rx-sc"><div class="n">Vehicle</div>${days.map(d=>`<div>${d.getDate()}<br>${d.toLocaleDateString('en-IN',{weekday:'short'})}</div>`).join('')}
+    ${items.map(i=>`<div class="n">${esc(i.name||'Vehicle')}</div>${days.map(d=>{
+      const end=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1);
+      const used=bks.filter(b=>b.itemId===i.id&&st(b)===1&&dt(b.startDateTime)&&dt(b.startDateTime)<end&&(dt(b.endDateTime)||dt(b.startDateTime))>d).reduce((s,b)=>s+(num(b.quantity)||1),0);
+      const full=typeof i.stock==='number'&&used>0&&used>=i.stock;
+      return`<div><div class="rx-cell ${full?'full':used?'busy':''}">${used}${typeof i.stock==='number'?'/'+i.stock:''}</div></div>`}).join('')}`).join('')}</div></div></div>`;
+}
+function reports(){
+  const box=$('r-rep');if(!box||box.classList.contains('hide'))return;
+  const now=new Date(),from=new Date(sod(now).getTime()-(repDays-1)*864e5);
+  const done=bks.filter(b=>{const d=dt(b.startDateTime);return st(b)===2&&d&&d>=from&&d<=now});
+  const open=bks.filter(b=>st(b)===1);
+  const per={};done.forEach(b=>{const k=b.itemName||'Vehicle';per[k]=per[k]||{n:0,r:0};per[k].n++;per[k].r+=grand(b)});
+  const card=(v,l)=>`<div class="st"><div></div><b class="rx-money">${v}</b><small>${l}</small></div>`;
+  box.innerHTML=`<div class="chips">${[7,30,90].map(n=>`<button class="chip ${repDays===n?'on':''}" onclick="kjRx.days(${n})">Last ${n} days</button>`).join('')}</div>
+    <div class="stats">${card(done.length,'Completed rentals')}${card(rs(done.reduce((s,b)=>s+grand(b),0)),'Earnings (completed)')}${card(rs(open.reduce((s,b)=>s+balOf(b),0)),'Balance on confirmed')}${card(rs(bks.reduce((s,b)=>s+Math.max(0,num(b.depositCollected)-num(b.depositReturned)-num(b.depositDeducted)),0)),'Deposits you hold')}</div>
+    <div class="card rx-box"><h3>By vehicle</h3>${Object.entries(per).sort((a,b)=>b[1].r-a[1].r).map(([k,v])=>`<div class="rx-row"><span>${esc(k)}<small>${v.n} rental${v.n>1?'s':''}</small></span><b class="rx-money">${rs(v.r)}</b></div>`).join('')||'<p class="hint">No completed rentals in this period.</p>'}</div>`;
+}
+function today(){
+  const box=$('rxToday');if(!box)return;
+  const now=new Date(),k=dayKey(now);
+  const conf=bks.filter(b=>st(b)===1);
+  const pick=conf.filter(b=>dt(b.startDateTime)&&dayKey(dt(b.startDateTime))===k&&!b.handoverVerifiedAt).length;
+  const back=conf.filter(b=>dt(b.endDateTime)&&dayKey(dt(b.endDateTime))===k&&dt(b.endDateTime)>=now).length;
+  const late=conf.filter(b=>dt(b.endDateTime)&&dt(b.endDateTime)<now).length;
+  box.innerHTML=`<span class="note">Pickups today: ${pick}</span><span class="note">Returns due today: ${back}</span><span class="note" ${late?'style="background:var(--red-l);color:var(--red)"':''}>Past end time: ${late}</span>`;
+}
+
+/* ═══ BOOKING CARDS ═══ */
+function decorate(){
+  if(!me)return;
+  const counts={};bks.forEach(b=>{const p=k10(b.userPhone);if(p.length===10&&[1,2].includes(st(b)))counts[p]=(counts[p]||0)+1});
+  document.querySelectorAll('#rblist article.bk').forEach(card=>{
+    const m=(card.innerHTML.match(/rbDetail\('([^']+)'\)/)||[])[1],b=m&&find(m);if(!b)return;
+    const binned=!!bin[b.id]&&[2,3,4].includes(st(b));
+    card.classList.toggle('rx-hidden',binned!==showBin);
+    const sig=JSON.stringify([st(b),grand(b),paidOf(b),b.refundDue,b.refundPaid,b.informedStatus,b.informedReached,b.depositCollected,b.depositReturned,b.depositDeducted,notes[k10(b.userPhone)],counts[k10(b.userPhone)],binned]);
+    if(card.dataset.rx===sig)return;card.dataset.rx=sig;
+    card.querySelectorAll('.rx-add').forEach(e=>e.remove());
+    const i=esc(b.id),btn=(a,t,c='')=>`<button class="btn sm rx-add ${c}" data-rx-act="${a}" data-id="${i}">${t}</button>`;
+    let h=btn('status','🔄 Change status')+btn('receipt','🧾 Receipt')+btn('pay','₹ Payments')+btn('charge','➕ Charges')+btn('deposit','🔐 Deposit');
+    const ph=k10(b.userPhone);
+    if(ph.length===10)h+=btn('note','📝 Note')+btn('inform','📣 Inform');
+    if(b.refundDue&&!b.refundPaid)h+=btn('refund','Mark refunded','red');
+    if([2,3,4].includes(st(b)))h+=btn(binned?'unbin':'bin',binned?'↩ Restore':'🗑 Move to Bin');
+    card.querySelector('.acts').insertAdjacentHTML('beforeend',h);
+    const told=b.informedAt&&num(b.informedStatus)===st(b)&&b.informedReached!==false;
+    const tags=[told?'✓ Customer informed via '+(VIA[b.informedVia]||'message'):(st(b)&&ph.length===10?'Customer not marked as informed':''),
+      `Paid ${money(b,paidOf(b))}${noQuote(b)?'':' · Balance '+money(b,balOf(b))}`,
+      extraSum(b)?'Extras '+money(b,extraSum(b)):'',
+      b.refundPaid?'Refunded '+money(b,b.refundAmount):'',
+      counts[ph]>=2?'Returning customer':'',notes[ph]?'📝 '+notes[ph]:'',b.source==='offline'?'Walk-in / phone':''].filter(Boolean);
+    card.children[2].insertAdjacentHTML('beforeend',`<div class="rx-meta rx-add">${tags.map(t=>`<span class="note">${esc(t)}</span>`).join('')}</div>`);
+  });
+  const bb=$('rxBinBtn');
+  if(bb)bb.textContent=showBin?'← Back to bookings':`🗑 Bin (${bks.filter(b=>bin[b.id]&&[2,3,4].includes(st(b))).length})`;
+}
+function refresh(){decorate();today();schedule();reports()}
+
+/* ═══ ALERT SETTINGS ═══ */
+function alertModal(){
+  modal(`<h3>Booking alerts</h3><p class="msg" style="margin-bottom:12px">Works while this page is open.</p>
+    ${tg('rxAs',alerts.sound,'Sound','Chime for new requests and cancellations')}${tg('rxAd2',alerts.desktop,'Desktop notifications','Pop-up when this tab is in the background')}
+    <div class="mact"><button class="btn" onclick="mclose(null)">Cancel</button><button class="btn pri" onclick="kjRx.alertSave()">Save</button></div>`);
+}
+async function alertSave(){
+  alerts.sound=$('rxAs').checked;let d=$('rxAd2').checked;
+  if(d){
+    if(!('Notification'in window))d=false;
+    else{if(Notification.permission==='default'){try{await Notification.requestPermission()}catch{}}d=Notification.permission==='granted'}
+    if(!d)toast('Desktop notifications are not allowed in this browser.',true);
+  }
+  alerts.desktop=d;try{localStorage.setItem('kjAlerts',JSON.stringify(alerts))}catch{}
+  mclose(true);
+}
+
+/* ═══ WIRE INTO THE PAGE ═══ */
+if($('rapp')){
+  $('r-bk').insertAdjacentHTML('afterbegin',`<div class="rx-meta" id="rxToday" style="margin:0 0 12px"></div><div class="rx-tools">
+    <button class="btn pri" data-rx-act="offline">+ Walk-in booking</button><button class="btn" data-rx-act="excel">⬇ Excel</button><button class="btn" id="rxBinBtn" data-rx-act="showbin">🗑 Bin</button></div>`);
+  $('r-bk').insertAdjacentHTML('afterend','<section id="r-sched" class="hide"></section><section id="r-rep" class="hide"></section>');
+  $('rtabs').insertAdjacentHTML('beforeend',`<button data-t="sched" onclick="rtab('sched')">${ic('cal')}Schedule</button><button data-t="rep" onclick="rtab('rep')">${ic('chart')}Reports</button>`);
+  $('rthemeBtn').insertAdjacentHTML('beforebegin',`<button class="btn iconbtn" data-rx-act="alerts" aria-label="Booking alerts">${ic('bell')}</button>`);
+  const oldTab=window.rtab;
+  window.rtab=t=>{oldTab(t);$('r-sched').classList.toggle('hide',t!=='sched');$('r-rep').classList.toggle('hide',t!=='rep');schedule();reports()};
+
+  /* the original status buttons now use the new flow */
+  window.rSt=changeStatus;
+  const oldHand=window.rHandoverSave;
+  window.rHandoverSave=async id=>{
+    const was=find(id)&&find(id).handoverVerifiedAt;
+    await oldHand(id);
+    try{
+      const s=await db.collection('rental_bookings').doc(id).get();
+      if(!was&&s.exists&&s.data().handoverVerifiedAt&&me){
+        const b=s.data();
+        await db.collection('app_notifications').doc('rental_'+id+'_handover').set({type:'rental_handover',bookingDocId:id,userId:b.userId||b.uid||'',userPhone:b.userPhone||'',title:'Vehicle handed over',body:`${b.itemName||'Your rental'} has been handed over.`,read:false,delivered:false,createdBy:by(),createdAt:FV.serverTimestamp()});
+      }
+    }catch{}
+  };
+  /* quote: tell the customer when the amount changes */
+  const oldQuote=window.rQuote;
+  window.rQuote=async id=>{
+    const before=find(id)&&find(id).quotedAmount;
+    await oldQuote(id);
+    try{
+      const s=await db.collection('rental_bookings').doc(id).get();
+      if(s.exists&&s.data().quotedAmount!==before&&me)await inform({id,...s.data()});
+    }catch{}
+  };
+
+  $('rapp').addEventListener('click',e=>{
+    const x=e.target.closest('[data-rx-act]');if(!x||!me)return;
+    const a=x.dataset.rxAct,id=x.dataset.id;
+    const map={status:()=>statusMenu(id),receipt:()=>receipt(id),pay:()=>payments(id),charge:()=>charges(id),deposit:()=>deposit(id),note:()=>note(id),
+      inform:()=>{const b=find(id);if(b)inform(b)},refund:()=>refund(id),bin:()=>binSet(id,true),unbin:()=>binSet(id,false),
+      offline,excel:excelModal,alerts:alertModal,showbin:()=>{showBin=!showBin;decorate()}};
+    map[a]&&map[a]();
+  });
+  let raf=0;
+  new MutationObserver(()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(decorate)}).observe($('rblist'),{childList:true,subtree:true});
+  setInterval(()=>{boot();today()},2000);
+}
+window.kjRx={set:changeStatus,payAdd,payDel,chAdd,chDel,offSave,excel,alertSave,days:n=>{repDays=n;reports()}};
+
+/* ═══ HOTEL: notification record when the owner changes status ═══ */
+const hotelStatus=async id=>{const s=await db.collection('hotel_bookings').doc(id).get();return s.exists?s.data():null};
+async function hotelNotify(id){
+  const d=await hotelStatus(id);
+  if(d&&owner)await pushRecord('hotel',id,d,'owner:'+owner.id);
+}
+/* waits for a change made through a dialog (reopen, advance that also confirms) */
+function watchChange(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const from=num(b.status),me2=owner&&('owner:'+owner.id);
+  let stop=null,timer=0;
+  const end=()=>{clearTimeout(timer);if(stop)stop();stop=null};
+  stop=db.collection('hotel_bookings').doc(id).onSnapshot(s=>{
+    if(!s.exists)return;
+    const d=s.data();
+    if(num(d.status)!==from&&d.handledBy===me2){setTimeout(end,0);hotelNotify(id).catch(()=>{})}
+  },end);
+  timer=setTimeout(end,12e4);
+}
+const oldSet=window.setSt;
+if(oldSet)window.setSt=async function(id,ns){
+  const b=bookings.find(x=>x.id===id),before=b?num(b.status):null;
+  await oldSet.apply(this,arguments);
+  try{const d=await hotelStatus(id);if(d&&before!==ns&&num(d.status)===ns&&d.handledBy==='owner:'+owner.id)await pushRecord('hotel',id,d,'owner:'+owner.id)}catch{}
+};
+const oldAdv=window.advance;
+if(oldAdv)window.advance=function(id){const b=bookings.find(x=>x.id===id);if(b&&num(b.status)===0)watchChange(id);return oldAdv.apply(this,arguments)};
+const hl=$('blist');
+if(hl)hl.addEventListener('click',e=>{const r=e.target.closest('[data-ro]');if(r)watchChange(r.getAttribute('data-ro'))},true);
+})();
+</script>
 </body>
 </html>
